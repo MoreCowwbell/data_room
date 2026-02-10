@@ -7,6 +7,7 @@ import { CreateLinkDialog } from '@/components/CreateLinkDialog'
 import { FolderActions } from '@/components/FolderActions'
 import { DocumentActions } from '@/components/DocumentActions'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { Button } from '@/components/ui/button'
 import { NdaTemplateForm } from '@/components/NdaTemplateForm'
 import { Folder, FileText, ChevronRight } from 'lucide-react'
 import {
@@ -111,6 +112,9 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                 </h1>
                 <div className="flex gap-2">
                     <ThemeToggle />
+                    <Button asChild variant="outline">
+                        <Link href={`/dashboard/rooms/${roomId}/engagement`}>Engagement</Link>
+                    </Button>
                     <CreateLinkDialog roomId={roomId} linkType="room" targetLabel={room.name} />
                     <CreateFolderDialog roomId={roomId} parentId={folderId ?? null} />
                     <UploadButton roomId={roomId} folderId={folderId ?? null} />
