@@ -7,6 +7,7 @@ import { CreateLinkDialog } from '@/components/CreateLinkDialog'
 import { FolderActions } from '@/components/FolderActions'
 import { DocumentActions } from '@/components/DocumentActions'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { NdaTemplateForm } from '@/components/NdaTemplateForm'
 import { Folder, FileText, ChevronRight } from 'lucide-react'
 import {
     Table,
@@ -50,7 +51,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
     // Fetch current folder if not root (to show breadcrumbs/name)
     let currentFolder = null
     if (folderId) {
-        const { data } = await supabase.from('folders').select('*').eq('id', folderId).single()
+        const { data } = await supabase.from('folders').select('*').eq('id', folderId).is('deleted_at', null).single()
         currentFolder = data
     }
 
@@ -59,6 +60,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         .from('folders')
         .select('*')
         .eq('room_id', roomId)
+        .is('deleted_at', null)
 
     if (folderId) {
         foldersQuery = foldersQuery.eq('parent_id', folderId)
@@ -73,6 +75,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         .from('documents')
         .select('*')
         .eq('room_id', roomId)
+        .is('deleted_at', null)
 
     if (folderId) {
         docsQuery = docsQuery.eq('folder_id', folderId)
@@ -80,6 +83,13 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         docsQuery = docsQuery.is('folder_id', null)
     }
     const { data: documents } = await docsQuery
+
+    const { data: ndaTemplate } = await supabase
+        .from('nda_templates')
+        .select('title, body, version')
+        .eq('room_id', roomId)
+        .eq('is_active', true)
+        .maybeSingle()
 
     return (
         <div className="flex flex-col min-h-screen p-8 bg-background text-foreground">
@@ -101,6 +111,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                 </h1>
                 <div className="flex gap-2">
                     <ThemeToggle />
+                    <CreateLinkDialog roomId={roomId} linkType="room" targetLabel={room.name} />
                     <CreateFolderDialog roomId={roomId} parentId={folderId ?? null} />
                     <UploadButton roomId={roomId} folderId={folderId ?? null} />
                 </div>
@@ -129,7 +140,15 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                                 <TableCell>{new Date(folder.created_at).toLocaleDateString()}</TableCell>
                                 <TableCell>-</TableCell>
                                 <TableCell>
-                                    <FolderActions roomId={roomId} folderId={folder.id} folderName={folder.name} />
+                                    <div className="flex items-center justify-end gap-1">
+                                        <CreateLinkDialog
+                                            roomId={roomId}
+                                            linkType="folder"
+                                            targetId={folder.id}
+                                            targetLabel={folder.name}
+                                        />
+                                        <FolderActions roomId={roomId} folderId={folder.id} folderName={folder.name} />
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -141,7 +160,12 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                                 <TableCell>-</TableCell>
                                 <TableCell>
                                     <div className="flex items-center justify-end gap-1">
-                                        <CreateLinkDialog roomId={roomId} documentId={doc.id} />
+                                        <CreateLinkDialog
+                                            roomId={roomId}
+                                            linkType="document"
+                                            targetId={doc.id}
+                                            targetLabel={doc.filename}
+                                        />
                                         <DocumentActions roomId={roomId} documentId={doc.id} filename={doc.filename} />
                                     </div>
                                 </TableCell>
@@ -156,6 +180,15 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            <div className="mt-8">
+                <NdaTemplateForm
+                    roomId={roomId}
+                    initialTitle={ndaTemplate?.title}
+                    initialBody={ndaTemplate?.body}
+                    version={ndaTemplate?.version}
+                />
             </div>
         </div>
     )

@@ -1,42 +1,110 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import {
+    decodeViewerEmail,
+    encodeViewerEmail,
+    evaluateLinkAvailability,
+    fetchLinkBySlug,
+    getValidVisitorSession,
+    getViewerIdentityCookieName,
+    getVisitorSessionCookieName,
+} from '@/lib/link-access'
+import { fetchActiveNdaTemplate, hasViewerAcceptedNda } from '@/lib/nda'
+import { sendEmail } from '@/lib/email'
+import { getRequestClientMetadata, getRequestOrigin } from '@/lib/request-context'
+import { issueViewerAuthToken } from '@/lib/viewer-auth'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
-export async function submitVisitorAuth(slug: string, formData: FormData) {
+export async function requestViewerMagicLink(slug: string, formData: FormData) {
     const supabase = await createClient()
-    const email = formData.get('email') as string
+    const email = (formData.get('email') as string | null)?.trim().toLowerCase()
 
-    // Fetch link to check settings
-    const { data: link } = await supabase
-        .from('shared_links')
-        .select('id, settings, is_active')
-        .eq('slug', slug)
-        .single()
-
-    if (!link || !link.is_active) {
-        throw new Error('Link invalid or expired')
+    if (!email) {
+        redirect(`/v/${slug}?error=${encodeURIComponent('Email is required')}`)
     }
 
-    // Record access log
-    const token = Math.random().toString(36).substring(2) + Date.now().toString(36)
+    const link = await fetchLinkBySlug(supabase, slug)
+    if (!link) {
+        redirect(`/v/${slug}?error=${encodeURIComponent('Invalid link')}`)
+    }
 
-    await supabase.from('link_access_logs').insert({
-        link_id: link.id,
-        visitor_email: email,
-        visitor_session_token: token,
-        user_agent: 'Pending', // We can get this from headers usually
-        ip_address: 'Pending'
+    const availability = evaluateLinkAvailability(link, { enforceMaxViews: true })
+    if (!availability.allowed) {
+        redirect(`/v/${slug}?error=${encodeURIComponent(availability.message || 'Link unavailable')}`)
+    }
+
+    const rawToken = await issueViewerAuthToken(supabase, link.id, email)
+    const origin = await getRequestOrigin()
+    const authUrl = `${origin}/v/${slug}/auth?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`
+
+    await sendEmail({
+        to: email,
+        subject: 'Your secure data room access link',
+        html: `<p>Use the secure link below to access your shared documents.</p><p><a href="${authUrl}">${authUrl}</a></p><p>This link expires in 15 minutes.</p>`,
+        text: `Use this secure link to access your shared documents:\n${authUrl}\n\nThis link expires in 15 minutes.`,
     })
 
-    // Set cookie
+    redirect(`/v/${slug}?message=${encodeURIComponent('Check your email for a secure sign-in link.')}`)
+}
+
+export async function acceptNda(slug: string) {
+    const supabase = await createClient()
+    const link = await fetchLinkBySlug(supabase, slug)
+    if (!link) {
+        redirect(`/v/${slug}`)
+    }
+
+    const availability = evaluateLinkAvailability(link, { enforceMaxViews: false })
+    if (!availability.allowed) {
+        redirect(`/v/${slug}?error=${encodeURIComponent(availability.message || 'Link unavailable')}`)
+    }
+
     const cookieStore = await cookies()
-    cookieStore.set(`visitor_session_${link.id}`, token, {
+    const sessionToken = cookieStore.get(getVisitorSessionCookieName(link.id))?.value
+    if (!sessionToken) {
+        redirect(`/v/${slug}`)
+    }
+
+    const session = await getValidVisitorSession(supabase, link.id, sessionToken)
+    if (!session) {
+        redirect(`/v/${slug}`)
+    }
+
+    const viewerEmail = decodeViewerEmail(cookieStore.get(getViewerIdentityCookieName(link.id))?.value) || session.visitor_email
+    if (!viewerEmail) {
+        redirect(`/v/${slug}`)
+    }
+
+    const template = await fetchActiveNdaTemplate(supabase, link.room_id)
+    if (!template) {
+        redirect(`/v/${slug}/view`)
+    }
+
+    const alreadyAccepted = await hasViewerAcceptedNda(supabase, link.id, viewerEmail, template.template_hash)
+    if (!alreadyAccepted) {
+        const metadata = await getRequestClientMetadata()
+        const { error } = await supabase.from('nda_acceptances').insert({
+            link_id: link.id,
+            nda_template_id: template.id,
+            viewer_email: viewerEmail,
+            template_hash: template.template_hash,
+            accepted_at: new Date().toISOString(),
+            ip_address: metadata.ipAddress,
+            user_agent: metadata.userAgent,
+        })
+
+        if (error) {
+            redirect(`/v/${slug}/nda?error=${encodeURIComponent('Failed to record acceptance')}`)
+        }
+    }
+
+    cookieStore.set(getViewerIdentityCookieName(link.id), encodeViewerEmail(viewerEmail), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
-        maxAge: 60 * 60 * 24 // 1 day
+        maxAge: 60 * 60 * 24,
     })
 
     redirect(`/v/${slug}/view`)

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { createHash } from 'crypto'
 
 async function assertRoomOwnership(roomId: string) {
     const supabase = await createClient()
@@ -78,6 +79,7 @@ export async function renameFolder(roomId: string, folderId: string, name: strin
         .update({ name: trimmedName })
         .eq('id', folderId)
         .eq('room_id', roomId)
+        .is('deleted_at', null)
 
     if (error) {
         throw new Error('Failed to rename folder')
@@ -93,6 +95,7 @@ export async function deleteFolder(roomId: string, folderId: string) {
         .from('folders')
         .select('id, parent_id')
         .eq('room_id', roomId)
+        .is('deleted_at', null)
 
     if (foldersError || !allFolders) {
         throw new Error('Failed to fetch folders')
@@ -117,38 +120,37 @@ export async function deleteFolder(roomId: string, folderId: string) {
 
     const { data: docsInFolders, error: docsError } = await supabase
         .from('documents')
-        .select('id, storage_path')
+        .select('id')
         .eq('room_id', roomId)
         .in('folder_id', descendantFolderIds)
+        .is('deleted_at', null)
 
     if (docsError) {
         throw new Error('Failed to fetch folder documents')
     }
 
     if (docsInFolders && docsInFolders.length > 0) {
-        const storagePaths = docsInFolders.map((doc) => doc.storage_path)
-        const { error: removeStorageError } = await supabase.storage.from('documents').remove(storagePaths)
-        if (removeStorageError) {
-            throw new Error('Failed to delete files from storage')
-        }
-
         const docIds = docsInFolders.map((doc) => doc.id)
-        const { error: removeDocsError } = await supabase.from('documents').delete().in('id', docIds)
-        if (removeDocsError) {
-            throw new Error('Failed to delete folder documents')
+        const { error: archiveDocsError } = await supabase
+            .from('documents')
+            .update({ deleted_at: new Date().toISOString() })
+            .in('id', docIds)
+            .is('deleted_at', null)
+
+        if (archiveDocsError) {
+            throw new Error('Failed to archive folder documents')
         }
     }
 
-    // Delete children first; root last.
-    const orderedFolderIds = [...descendantFolderIds].reverse()
-    const { error: deleteFoldersError } = await supabase
+    const { error: archiveFoldersError } = await supabase
         .from('folders')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('room_id', roomId)
-        .in('id', orderedFolderIds)
+        .in('id', descendantFolderIds)
+        .is('deleted_at', null)
 
-    if (deleteFoldersError) {
-        throw new Error('Failed to delete folder')
+    if (archiveFoldersError) {
+        throw new Error('Failed to archive folder')
     }
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
@@ -166,6 +168,7 @@ export async function renameDocument(roomId: string, documentId: string, filenam
         .update({ filename: trimmedFilename })
         .eq('id', documentId)
         .eq('room_id', roomId)
+        .is('deleted_at', null)
 
     if (error) {
         throw new Error('Failed to rename file')
@@ -179,32 +182,85 @@ export async function deleteDocument(roomId: string, documentId: string) {
 
     const { data: doc, error: fetchError } = await supabase
         .from('documents')
-        .select('id, storage_path')
+        .select('id')
         .eq('id', documentId)
         .eq('room_id', roomId)
+        .is('deleted_at', null)
         .single()
 
     if (fetchError || !doc) {
         throw new Error('File not found')
     }
 
-    const { error: removeStorageError } = await supabase.storage
+    const { error: archiveError } = await supabase
         .from('documents')
-        .remove([doc.storage_path])
-
-    if (removeStorageError) {
-        throw new Error('Failed to delete file from storage')
-    }
-
-    const { error: deleteError } = await supabase
-        .from('documents')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', documentId)
         .eq('room_id', roomId)
+        .is('deleted_at', null)
 
-    if (deleteError) {
-        throw new Error('Failed to delete file')
+    if (archiveError) {
+        throw new Error('Failed to archive file')
     }
+
+    revalidatePath(`/dashboard/rooms/${roomId}`)
+}
+
+export async function saveNdaTemplate(roomId: string, title: string, body: string) {
+    const supabase = await assertRoomOwnership(roomId)
+    const trimmedTitle = title.trim()
+    const trimmedBody = body.trim()
+
+    if (!trimmedTitle || !trimmedBody) {
+        throw new Error('NDA title and content are required')
+    }
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+        throw new Error('Unauthorized')
+    }
+
+    const { data: existingTemplate } = await supabase
+        .from('nda_templates')
+        .select('id, version')
+        .eq('room_id', roomId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+    if (existingTemplate) {
+        const { error: deactivateError } = await supabase
+            .from('nda_templates')
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq('id', existingTemplate.id)
+
+        if (deactivateError) {
+            throw new Error('Failed to update existing NDA template')
+        }
+    }
+
+    const version = (existingTemplate?.version ?? 0) + 1
+    const templateHash = createHash('sha256').update(`${trimmedTitle}\n${trimmedBody}`).digest('hex')
+
+    const { error: createError } = await supabase.from('nda_templates').insert({
+        room_id: roomId,
+        title: trimmedTitle,
+        body: trimmedBody,
+        version,
+        template_hash: templateHash,
+        is_active: true,
+        created_by: user.id,
+    })
+
+    if (createError) {
+        throw new Error('Failed to save NDA template')
+    }
+
+    await supabase
+        .from('data_rooms')
+        .update({ nda_disclaimer_acknowledged_at: new Date().toISOString() })
+        .eq('id', roomId)
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
 }

@@ -13,6 +13,14 @@ export function UploadButton({ roomId, folderId }: { roomId: string, folderId: s
         if (!e.target.files || e.target.files.length === 0) return
 
         const file = e.target.files[0]
+        const isPdfMime = file.type === 'application/pdf'
+        const isPdfExtension = file.name.toLowerCase().endsWith('.pdf')
+        if (!isPdfMime && !isPdfExtension) {
+            alert('Alpha currently supports PDF uploads only.')
+            e.target.value = ''
+            return
+        }
+
         setUploading(true)
 
         try {
@@ -45,6 +53,7 @@ export function UploadButton({ roomId, folderId }: { roomId: string, folderId: s
             <input
                 type="file"
                 onChange={handleFileChange}
+                accept="application/pdf,.pdf"
                 className="absolute inset-0 opacity-0 cursor-pointer"
                 disabled={uploading}
             />
