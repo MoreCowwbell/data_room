@@ -14,6 +14,7 @@ import { fetchActiveNdaTemplate, hasViewerAcceptedNda } from '@/lib/nda'
 import { sendEmail } from '@/lib/email'
 import { getRequestClientMetadata, getRequestOrigin } from '@/lib/request-context'
 import { issueViewerAuthToken } from '@/lib/viewer-auth'
+import { writeAuditEvent } from '@/lib/audit'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -44,6 +45,15 @@ export async function requestViewerMagicLink(slug: string, formData: FormData) {
         subject: 'Your secure data room access link',
         html: `<p>Use the secure link below to access your shared documents.</p><p><a href="${authUrl}">${authUrl}</a></p><p>This link expires in 15 minutes.</p>`,
         text: `Use this secure link to access your shared documents:\n${authUrl}\n\nThis link expires in 15 minutes.`,
+    })
+
+    await writeAuditEvent(supabase, {
+        roomId: link.room_id,
+        actorType: 'viewer',
+        action: 'viewer.magic_link_requested',
+        targetType: 'shared_link',
+        targetId: link.id,
+        metadata: { viewer_email: email },
     })
 
     redirect(`/v/${slug}?message=${encodeURIComponent('Check your email for a secure sign-in link.')}`)
@@ -98,6 +108,15 @@ export async function acceptNda(slug: string) {
         if (error) {
             redirect(`/v/${slug}/nda?error=${encodeURIComponent('Failed to record acceptance')}`)
         }
+
+        await writeAuditEvent(supabase, {
+            roomId: link.room_id,
+            actorType: 'viewer',
+            action: 'viewer.nda_accepted',
+            targetType: 'shared_link',
+            targetId: link.id,
+            metadata: { viewer_email: viewerEmail, nda_template_id: template.id },
+        })
     }
 
     cookieStore.set(getViewerIdentityCookieName(link.id), encodeViewerEmail(viewerEmail), {

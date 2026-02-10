@@ -21,7 +21,13 @@ export async function createDataRoom(formData: FormData) {
     const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single()
 
     if (!profile) {
-        await supabase.from('profiles').insert({ id: user.id, full_name: user.email })
+        await supabase.from('profiles').insert({ id: user.id, full_name: user.email, email: user.email })
+    } else {
+        await supabase
+            .from('profiles')
+            .update({ email: user.email })
+            .eq('id', user.id)
+            .is('email', null)
     }
 
     const { data, error } = await supabase

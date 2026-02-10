@@ -8,6 +8,7 @@ import {
     getViewerIdentityCookieName,
     getVisitorSessionCookieName,
 } from '@/lib/link-access'
+import { writeAuditEvent } from '@/lib/audit'
 import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
@@ -108,6 +109,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ docI
         ip_address: validSession.ip_address,
         user_agent: req.headers.get('user-agent'),
         downloaded_at: new Date().toISOString(),
+    })
+
+    await writeAuditEvent(supabase, {
+        roomId: link.room_id,
+        actorType: 'viewer',
+        action: 'document.downloaded',
+        targetType: 'document',
+        targetId: document.id,
+        metadata: { viewer_email: viewerEmail, link_id: link.id },
     })
 
     const headers = new Headers()

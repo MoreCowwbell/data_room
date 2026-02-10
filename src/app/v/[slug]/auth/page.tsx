@@ -9,6 +9,8 @@ import {
 import { fetchActiveNdaTemplate, hasViewerAcceptedNda } from '@/lib/nda'
 import { getRequestClientMetadata } from '@/lib/request-context'
 import { consumeViewerAuthToken, createViewerSession } from '@/lib/viewer-auth'
+import { notifyFirstOpen } from '@/lib/notifications'
+import { writeAuditEvent } from '@/lib/audit'
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 
@@ -44,7 +46,7 @@ export default async function ViewerAuthCallbackPage({ params, searchParams }: A
     }
 
     const metadata = await getRequestClientMetadata()
-    const { sessionToken } = await createViewerSession(supabase, link, viewerEmail, metadata)
+    const { sessionToken, isFirstOpen } = await createViewerSession(supabase, link, viewerEmail, metadata)
 
     const cookieStore = await cookies()
     cookieStore.set(getVisitorSessionCookieName(link.id), sessionToken, {
@@ -59,6 +61,33 @@ export default async function ViewerAuthCallbackPage({ params, searchParams }: A
         path: '/',
         maxAge: 60 * 60 * 24,
     })
+
+    await writeAuditEvent(supabase, {
+        roomId: link.room_id,
+        actorType: 'viewer',
+        action: 'viewer.authenticated',
+        targetType: 'shared_link',
+        targetId: link.id,
+        metadata: { viewer_email: viewerEmail },
+    })
+
+    if (isFirstOpen) {
+        const openedAtIso = new Date().toISOString()
+        await notifyFirstOpen(supabase, {
+            link,
+            viewerEmail,
+            openedAtIso,
+        })
+
+        await writeAuditEvent(supabase, {
+            roomId: link.room_id,
+            actorType: 'viewer',
+            action: 'viewer.first_open',
+            targetType: 'shared_link',
+            targetId: link.id,
+            metadata: { viewer_email: viewerEmail, opened_at: openedAtIso },
+        })
+    }
 
     if (link.require_nda) {
         const template = await fetchActiveNdaTemplate(supabase, link.room_id)

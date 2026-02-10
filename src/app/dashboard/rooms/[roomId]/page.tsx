@@ -92,6 +92,13 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         .eq('is_active', true)
         .maybeSingle()
 
+    const { data: auditEvents } = await supabase
+        .from('audit_events')
+        .select('id, action, target_type, created_at, metadata')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
     return (
         <div className="flex flex-col min-h-screen p-8 bg-background text-foreground">
             <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
@@ -193,6 +200,23 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                     initialBody={ndaTemplate?.body}
                     version={ndaTemplate?.version}
                 />
+            </div>
+
+            <div className="mt-8 rounded-lg border bg-card p-4">
+                <h2 className="font-semibold mb-3">Audit Log</h2>
+                <div className="space-y-2">
+                    {(auditEvents ?? []).map((event) => (
+                        <div key={event.id} className="rounded border p-2 text-sm">
+                            <div className="font-medium">{event.action}</div>
+                            <div className="text-muted-foreground">
+                                {event.target_type} • {new Date(event.created_at).toLocaleString()}
+                            </div>
+                        </div>
+                    ))}
+                    {(auditEvents ?? []).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No audit events yet.</p>
+                    ) : null}
+                </div>
             </div>
         </div>
     )

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { writeAuditEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 import { createHash } from 'crypto'
 
@@ -64,6 +65,15 @@ export async function createFolder(roomId: string, parentId: string | null, name
         throw new Error('Failed to create folder')
     }
 
+    const { data: { user } } = await supabase.auth.getUser()
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: user?.id,
+        action: 'folder.created',
+        targetType: 'folder',
+        metadata: { parent_id: parentId, name: trimmedName },
+    })
+
     revalidatePath(`/dashboard/rooms/${roomId}`)
 }
 
@@ -84,6 +94,16 @@ export async function renameFolder(roomId: string, folderId: string, name: strin
     if (error) {
         throw new Error('Failed to rename folder')
     }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: user?.id,
+        action: 'folder.renamed',
+        targetType: 'folder',
+        targetId: folderId,
+        metadata: { name: trimmedName },
+    })
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
 }
@@ -153,6 +173,16 @@ export async function deleteFolder(roomId: string, folderId: string) {
         throw new Error('Failed to archive folder')
     }
 
+    const { data: { user } } = await supabase.auth.getUser()
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: user?.id,
+        action: 'folder.deleted',
+        targetType: 'folder',
+        targetId: folderId,
+        metadata: { descendant_count: descendantFolderIds.length },
+    })
+
     revalidatePath(`/dashboard/rooms/${roomId}`)
 }
 
@@ -173,6 +203,16 @@ export async function renameDocument(roomId: string, documentId: string, filenam
     if (error) {
         throw new Error('Failed to rename file')
     }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: user?.id,
+        action: 'document.renamed',
+        targetType: 'document',
+        targetId: documentId,
+        metadata: { filename: trimmedFilename },
+    })
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
 }
@@ -202,6 +242,15 @@ export async function deleteDocument(roomId: string, documentId: string) {
     if (archiveError) {
         throw new Error('Failed to archive file')
     }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: user?.id,
+        action: 'document.deleted',
+        targetType: 'document',
+        targetId: documentId,
+    })
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
 }
@@ -256,6 +305,14 @@ export async function saveNdaTemplate(roomId: string, title: string, body: strin
     if (createError) {
         throw new Error('Failed to save NDA template')
     }
+
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: user.id,
+        action: 'nda.template_saved',
+        targetType: 'nda_template',
+        metadata: { version, title: trimmedTitle },
+    })
 
     await supabase
         .from('data_rooms')

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { writeAuditEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 import { randomBytes } from 'crypto'
 
@@ -119,6 +120,21 @@ export async function createLink(input: CreateLinkInput) {
         })
 
         if (!error) {
+            await writeAuditEvent(supabase, {
+                roomId,
+                actorId: user.id,
+                action: 'link.created',
+                targetType: 'shared_link',
+                metadata: {
+                    slug,
+                    link_type: linkType,
+                    target_id: targetId || null,
+                    expires_at: expiresAt,
+                    max_views: maxViews,
+                    allow_download: allowDownload,
+                    require_nda: requireNda,
+                },
+            })
             insertError = null
             break
         }
