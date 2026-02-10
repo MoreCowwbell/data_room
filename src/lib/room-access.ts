@@ -66,3 +66,21 @@ export async function getUserAccessibleRoomIds(): Promise<string[]> {
     for (const member of memberships ?? []) ids.add(member.room_id)
     return [...ids]
 }
+
+export async function requireRoomAccess(
+    roomId: string,
+    allowedRoles: Array<'owner' | 'admin'> = ['owner', 'admin']
+): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; userId: string; role: 'owner' | 'admin' }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+        throw new Error('Unauthorized')
+    }
+
+    const access = await getUserRoomAccess(roomId)
+    if (!access || !allowedRoles.includes(access.role)) {
+        throw new Error('Unauthorized')
+    }
+
+    return { supabase, userId: user.id, role: access.role }
+}

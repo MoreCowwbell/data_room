@@ -1,7 +1,7 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { writeAuditEvent } from '@/lib/audit'
+import { requireRoomAccess } from '@/lib/room-access'
 import { revalidatePath } from 'next/cache'
 import { randomBytes } from 'crypto'
 
@@ -36,20 +36,16 @@ export async function createLink(input: CreateLinkInput) {
         name = null,
     } = input
 
-    const supabase = await createClient()
-
     if (!['room', 'folder', 'document'].includes(linkType)) {
         throw new Error('Invalid link type')
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Unauthorized')
+    const { supabase, userId } = await requireRoomAccess(roomId, ['owner', 'admin'])
 
     const { data: room, error: roomError } = await supabase
         .from('data_rooms')
         .select('id')
         .eq('id', roomId)
-        .eq('owner_id', user.id)
         .maybeSingle()
 
     if (roomError || !room) {
@@ -111,7 +107,7 @@ export async function createLink(input: CreateLinkInput) {
             slug,
             link_type: linkType,
             settings: { require_email: requireEmail },
-            created_by: user.id,
+            created_by: userId,
             allow_download: allowDownload,
             require_nda: requireNda,
             expires_at: expiresAt,
@@ -122,7 +118,7 @@ export async function createLink(input: CreateLinkInput) {
         if (!error) {
             await writeAuditEvent(supabase, {
                 roomId,
-                actorId: user.id,
+                actorId: userId,
                 action: 'link.created',
                 targetType: 'shared_link',
                 metadata: {
@@ -153,4 +149,52 @@ export async function createLink(input: CreateLinkInput) {
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
     return slug
+}
+
+export async function setLinkActiveState(roomId: string, linkId: string, isActive: boolean) {
+    const { supabase, userId } = await requireRoomAccess(roomId, ['owner', 'admin'])
+
+    const { error } = await supabase
+        .from('shared_links')
+        .update({ is_active: isActive })
+        .eq('id', linkId)
+        .eq('room_id', roomId)
+
+    if (error) {
+        throw new Error('Failed to update link state')
+    }
+
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: userId,
+        action: isActive ? 'link.activated' : 'link.revoked',
+        targetType: 'shared_link',
+        targetId: linkId,
+    })
+
+    revalidatePath(`/dashboard/rooms/${roomId}`)
+}
+
+export async function deleteLink(roomId: string, linkId: string) {
+    const { supabase, userId } = await requireRoomAccess(roomId, ['owner', 'admin'])
+
+    const { error } = await supabase
+        .from('shared_links')
+        .delete()
+        .eq('id', linkId)
+        .eq('room_id', roomId)
+
+    if (error) {
+        throw new Error('Failed to delete link')
+    }
+
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: userId,
+        action: 'link.deleted',
+        targetType: 'shared_link',
+        targetId: linkId,
+    })
+
+    revalidatePath(`/dashboard/rooms/${roomId}`)
 }

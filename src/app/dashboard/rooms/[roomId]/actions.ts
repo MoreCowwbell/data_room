@@ -1,32 +1,12 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { writeAuditEvent } from '@/lib/audit'
+import { requireRoomAccess } from '@/lib/room-access'
 import { revalidatePath } from 'next/cache'
 import { createHash } from 'crypto'
 
 async function assertRoomOwnership(roomId: string) {
-    const supabase = await createClient()
-
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-        throw new Error('Unauthorized')
-    }
-
-    const { data: room, error } = await supabase
-        .from('data_rooms')
-        .select('id')
-        .eq('id', roomId)
-        .eq('owner_id', user.id)
-        .single()
-
-    if (error || !room) {
-        throw new Error('Unauthorized')
-    }
-
+    const { supabase } = await requireRoomAccess(roomId, ['owner', 'admin'])
     return supabase
 }
 

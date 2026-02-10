@@ -9,6 +9,9 @@ import { DocumentActions } from '@/components/DocumentActions'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { NdaTemplateForm } from '@/components/NdaTemplateForm'
+import { TeamManager } from '@/components/TeamManager'
+import { LinkManager } from '@/components/LinkManager'
+import { getUserRoomAccess } from '@/lib/room-access'
 import { Folder, FileText, ChevronRight } from 'lucide-react'
 import {
     Table,
@@ -37,12 +40,16 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         return redirect('/login')
     }
 
+    const access = await getUserRoomAccess(roomId)
+    if (!access) {
+        return notFound()
+    }
+
     // Fetch room to check access
     const { data: room } = await supabase
         .from('data_rooms')
         .select('*')
         .eq('id', roomId)
-        .eq('owner_id', user.id)
         .single()
 
     if (!room) {
@@ -98,6 +105,34 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         .eq('room_id', roomId)
         .order('created_at', { ascending: false })
         .limit(20)
+
+    const { data: sharedLinks } = await supabase
+        .from('shared_links')
+        .select('id, slug, name, link_type, is_active, expires_at, max_views, view_count')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false })
+
+    const [{ data: ownerProfile }, { data: members }, { data: invites }] = await Promise.all([
+        supabase.from('profiles').select('email').eq('id', room.owner_id).maybeSingle(),
+        supabase
+            .from('team_members')
+            .select('user_id, role')
+            .eq('room_id', roomId)
+            .neq('user_id', room.owner_id)
+            .order('created_at', { ascending: true }),
+        supabase
+            .from('team_invites')
+            .select('id, email, expires_at')
+            .eq('room_id', roomId)
+            .is('accepted_at', null)
+            .order('created_at', { ascending: false }),
+    ])
+
+    const memberUserIds = (members ?? []).map((member) => member.user_id)
+    const { data: memberProfiles } = memberUserIds.length > 0
+        ? await supabase.from('profiles').select('id, email').in('id', memberUserIds)
+        : { data: [] as Array<{ id: string; email: string | null }> }
+    const memberEmailById = new Map((memberProfiles ?? []).map((profile) => [profile.id, profile.email || 'unknown']))
 
     return (
         <div className="flex flex-col min-h-screen p-8 bg-background text-foreground">
@@ -194,11 +229,45 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
             </div>
 
             <div className="mt-8">
+                <LinkManager
+                    roomId={roomId}
+                    links={(sharedLinks ?? []).map((link) => ({
+                        id: link.id,
+                        slug: link.slug,
+                        name: link.name,
+                        linkType: link.link_type,
+                        isActive: link.is_active,
+                        expiresAt: link.expires_at,
+                        maxViews: link.max_views,
+                        viewCount: link.view_count ?? 0,
+                    }))}
+                />
+            </div>
+
+            <div className="mt-8">
                 <NdaTemplateForm
                     roomId={roomId}
                     initialTitle={ndaTemplate?.title}
                     initialBody={ndaTemplate?.body}
                     version={ndaTemplate?.version}
+                />
+            </div>
+
+            <div className="mt-8">
+                <TeamManager
+                    roomId={roomId}
+                    currentRole={access.role}
+                    ownerEmail={ownerProfile?.email || room.owner_id}
+                    members={(members ?? []).map((member) => ({
+                        userId: member.user_id,
+                        email: memberEmailById.get(member.user_id) || member.user_id,
+                        role: member.role,
+                    }))}
+                    invites={(invites ?? []).map((invite) => ({
+                        id: invite.id,
+                        email: invite.email,
+                        expiresAt: invite.expires_at,
+                    }))}
                 />
             </div>
 

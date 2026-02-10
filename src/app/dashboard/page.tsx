@@ -9,6 +9,11 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default async function DashboardPage() {
     const supabase = await createClient()
+    type RoomRow = {
+        id: string
+        name: string
+        created_at: string
+    }
 
     const {
         data: { user },
@@ -23,6 +28,30 @@ export default async function DashboardPage() {
         .select('*')
         .eq('owner_id', user.id)
         .order('created_at', { ascending: false })
+
+    const { data: memberRows } = await supabase
+        .from('team_members')
+        .select('room_id')
+        .eq('user_id', user.id)
+        .in('role', ['owner', 'admin'])
+
+    const memberRoomIds = (memberRows ?? []).map((row) => row.room_id)
+    const { data: memberRooms } = memberRoomIds.length > 0
+        ? await supabase
+            .from('data_rooms')
+            .select('*')
+            .in('id', memberRoomIds)
+            .order('created_at', { ascending: false })
+        : { data: [] as RoomRow[] }
+
+    const roomMap = new Map<string, RoomRow>()
+    for (const room of rooms ?? []) {
+        roomMap.set(room.id, room)
+    }
+    for (const room of memberRooms ?? []) {
+        roomMap.set(room.id, room)
+    }
+    const accessibleRooms = [...roomMap.values()]
 
     return (
         <div className="flex min-h-screen flex-col bg-background p-8 text-foreground">
@@ -43,7 +72,7 @@ export default async function DashboardPage() {
                 <CreateRoomForm />
 
                 <div className="grid gap-4">
-                    {rooms?.map((room) => (
+                    {accessibleRooms.map((room) => (
                         <Link key={room.id} href={`/dashboard/rooms/${room.id}`}>
                             <Card className="cursor-pointer transition-colors hover:bg-muted/40">
                                 <CardHeader>
@@ -53,7 +82,7 @@ export default async function DashboardPage() {
                             </Card>
                         </Link>
                     ))}
-                    {rooms?.length === 0 && (
+                    {accessibleRooms.length === 0 && (
                         <p className="py-8 text-center text-muted-foreground">No data rooms found. Create one to get started.</p>
                     )}
                 </div>
