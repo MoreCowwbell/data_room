@@ -9,9 +9,21 @@ export async function login(formData: FormData) {
     const supabase = await createClient()
     const email = formData.get('email') as string
 
-    // Get origin
+    // Resolve the current site origin for auth callback links.
     const headersList = await headers()
-    const origin = headersList.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')
+    const forwardedHost = headersList.get('x-forwarded-host')
+    const forwardedProto = headersList.get('x-forwarded-proto') || 'https'
+    const host = headersList.get('host')
+
+    const origin =
+        siteUrl ||
+        (forwardedHost
+            ? `${forwardedProto}://${forwardedHost}`
+            : host
+                ? `${process.env.NODE_ENV === 'development' ? 'http' : 'https'}://${host}`
+                : 'http://localhost:3000')
+
     const emailRedirectTo = `${origin}/auth/callback`
     console.log('Sending login link to:', email, 'Redirect to:', emailRedirectTo)
 

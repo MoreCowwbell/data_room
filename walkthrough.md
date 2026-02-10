@@ -35,6 +35,8 @@ Update `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 Run the SQL migrations in your Supabase Dashboard (SQL Editor) to create the schema and policies.
 *   Copy content from `supabase/migrations/20240523000000_init.sql`.
 *   Copy content from `supabase/migrations/20240523000001_storage.sql`.
+*   Copy content from `supabase/migrations/20260210000002_policies.sql`.
+*   Copy content from `supabase/migrations/20260210000003_storage_delete_update.sql`.
 
 ### 3. Run Locally
 ```bash

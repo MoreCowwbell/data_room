@@ -10,9 +10,7 @@ export default async function LoginPage({
 }: {
     searchParams: Promise<{ message?: string; error?: string }>
 }) {
-    const props = await searchParams
-    const message = props.message
-    const error = props.error
+    const { message, error } = await searchParams
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
             <Card className="mx-auto max-w-sm w-full">
@@ -24,14 +22,14 @@ export default async function LoginPage({
                 </CardHeader>
                 <CardContent>
                     <form className="grid gap-4">
-                        {searchParams?.message && (
+                        {message && (
                             <div className="p-3 bg-green-100 border border-green-200 text-green-700 rounded text-sm text-center">
-                                {searchParams.message}
+                                {message}
                             </div>
                         )}
-                        {searchParams?.error && (
+                        {error && (
                             <div className="p-3 bg-red-100 border border-red-200 text-red-700 rounded text-sm text-center">
-                                {searchParams.error}
+                                {error}
                             </div>
                         )}
                         <div className="grid gap-2">

@@ -3,7 +3,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function createLink(roomId: string, documentId: string, settings: any) {
+type LinkSettings = {
+    require_email?: boolean
+    [key: string]: unknown
+}
+
+export async function createLink(roomId: string, documentId: string, settings: LinkSettings) {
     const supabase = await createClient()
 
     // Generate random slug

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -17,26 +17,31 @@ export default function SecureDocumentViewer({
     watermarkText: string
 }) {
     const [numPages, setNumPages] = useState<number | null>(null)
-    const [pageTimes, setPageTimes] = useState<Record<number, number>>({})
-    const startTimeRef = useRef<number>(Date.now())
+    const startTimeRef = useRef<number>(0)
     const currentPageRef = useRef<number>(1)
 
     // Beacon sender
-    const sendBeacon = (page: number, duration: number) => {
+    const sendBeacon = useCallback((page: number, duration: number) => {
         if (duration < 1) return // Ignore very short views
+
+        const parsedUrl = new URL(docUrl, window.location.href)
+        const linkId = parsedUrl.searchParams.get('linkId')
+        const docId = docUrl.split('/stream/')[1]?.split('?')[0]
+
+        if (!linkId || !docId) return
+
         const data = JSON.stringify({
-            // linkId and docId are needed. 
-            // We need to pass them as props or extract from URL?
-            // The viewer component doesn't have linkId/docId props right now, only docUrl.
-            // But docUrl contains linkId in query param!
-            // Let's parse it.
-            linkId: new URL(docUrl, window.location.href).searchParams.get('linkId'),
-            docId: docUrl.split('/stream/')[1]?.split('?')[0],
+            linkId,
+            docId,
             page,
             duration
         })
         navigator.sendBeacon('/api/analytics/beacon', data)
-    }
+    }, [docUrl])
+
+    useEffect(() => {
+        startTimeRef.current = Date.now()
+    }, [])
 
     // Intersection Observer to track visible page
     useEffect(() => {
@@ -69,7 +74,7 @@ export default function SecureDocumentViewer({
             sendBeacon(currentPageRef.current, duration)
             observer.disconnect()
         }
-    }, [numPages, docUrl])
+    }, [numPages, sendBeacon])
 
     // Also handle visibility change (tab switch)
     useEffect(() => {
@@ -84,7 +89,7 @@ export default function SecureDocumentViewer({
         }
         document.addEventListener('visibilitychange', handleVisibilityChange)
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }, [])
+    }, [sendBeacon])
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages)
@@ -101,7 +106,7 @@ export default function SecureDocumentViewer({
                 loading={<Loader2 className="w-8 h-8 animate-spin text-gray-500" />}
                 className="shadow-lg"
             >
-                {Array.from(new Array(numPages), (el, index) => (
+                {Array.from(new Array(numPages), (_, index) => (
                     <div key={`page_${index + 1}`} className="relative mb-4 group" data-page={index + 1}>
                         <Page
                             pageNumber={index + 1}
