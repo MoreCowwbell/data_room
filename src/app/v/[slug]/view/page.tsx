@@ -11,6 +11,7 @@ import {
 import { fetchActiveNdaTemplate, hasViewerAcceptedNda } from '@/lib/nda'
 import { notFound, redirect } from 'next/navigation'
 import SecureDocumentViewer from '@/components/SecureDocumentViewer'
+import { Button } from '@/components/ui/button'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 
@@ -75,6 +76,7 @@ export default async function ViewPage({ params, searchParams }: ViewPageProps) 
 
     const watermarkText = `${visitorEmail} - ${ip} - ${new Date().toISOString().split('T')[0]}`
     const streamUrl = `/api/stream/${selectedDocument.id}?linkId=${link.id}`
+    const downloadUrl = `/api/download/${selectedDocument.id}?linkId=${link.id}`
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -82,8 +84,15 @@ export default async function ViewPage({ params, searchParams }: ViewPageProps) 
                 <h1 className="font-semibold text-lg max-w-xl truncate">
                     {link.name || selectedDocument.filename}
                 </h1>
-                <div className="text-sm text-gray-500">
-                    Viewing as {visitorEmail}
+                <div className="flex items-center gap-3">
+                    {link.allow_download ? (
+                        <Button asChild variant="outline" size="sm">
+                            <a href={downloadUrl}>Download PDF</a>
+                        </Button>
+                    ) : null}
+                    <div className="text-sm text-gray-500">
+                        Viewing as {visitorEmail}
+                    </div>
                 </div>
             </header>
 
