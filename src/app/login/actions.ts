@@ -3,16 +3,23 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 
 export async function login(formData: FormData) {
     const supabase = await createClient()
     const email = formData.get('email') as string
 
+    // Get origin
+    const headersList = await headers()
+    const origin = headersList.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    const emailRedirectTo = `${origin}/auth/callback`
+    console.log('Sending login link to:', email, 'Redirect to:', emailRedirectTo)
+
     const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-            shouldCreateUser: true, // Allow new users for now (or false if strict)
-            // emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+            shouldCreateUser: true,
+            emailRedirectTo,
         },
     })
 

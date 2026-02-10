@@ -5,11 +5,14 @@ import { Label } from '@/components/ui/label'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function LoginPage({
+export default async function LoginPage({
     searchParams,
 }: {
-    searchParams: { message: string; error: string }
+    searchParams: Promise<{ message?: string; error?: string }>
 }) {
+    const props = await searchParams
+    const message = props.message
+    const error = props.error
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
             <Card className="mx-auto max-w-sm w-full">
