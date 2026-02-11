@@ -57,6 +57,9 @@ These are **intentionally out of scope** for alpha per PRD Section 3:
 - Native mobile app
 - SOC2 compliance
 - Office file conversion (PPTX, DOCX, KEY, XLSX viewer)
+- NDA upload: PDF/DOCX extraction (requires server-side parsing deps)
+- NDA rich text body (markdown/HTML support + renderer)
+- NDA template library (multiple pre-built templates to choose from)
 
 ---
 

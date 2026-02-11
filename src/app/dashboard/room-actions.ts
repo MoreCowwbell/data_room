@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { VAULT_TEMPLATES } from '@/lib/vault-templates'
+import { readFile } from 'fs/promises'
+import path from 'path'
 
 export async function createDataRoom(formData: FormData) {
     const supabase = await createClient()
@@ -58,9 +60,43 @@ export async function createDataRoom(formData: FormData) {
             name: f.name,
         }))
 
-        const { error: foldersError } = await supabase.from('folders').insert(folderInserts)
+        const { data: createdFolders, error: foldersError } = await supabase
+            .from('folders')
+            .insert(folderInserts)
+            .select('id, name')
         if (foldersError) {
             console.error('Error creating template folders:', foldersError)
+        }
+
+        // Auto-upload guide PDF into the 00_Overview folder
+        if (createdFolders && template.guideFilename) {
+            const overviewFolder = createdFolders.find((f) => f.name === '00_Overview')
+            if (overviewFolder) {
+                try {
+                    const guidePath = path.join(process.cwd(), 'public', 'templates', template.guideFilename)
+                    const fileBuffer = await readFile(guidePath)
+                    const storagePath = `${roomId}/${crypto.randomUUID()}.pdf`
+
+                    const { error: uploadError } = await supabase.storage
+                        .from('documents')
+                        .upload(storagePath, fileBuffer, { contentType: 'application/pdf' })
+
+                    if (!uploadError) {
+                        await supabase.from('documents').insert({
+                            room_id: roomId,
+                            folder_id: overviewFolder.id,
+                            storage_path: storagePath,
+                            filename: template.guideFilename,
+                            mime_type: 'application/pdf',
+                            status: 'ready',
+                        })
+                    } else {
+                        console.error('Error uploading guide PDF:', uploadError)
+                    }
+                } catch (err) {
+                    console.error('Guide PDF not found or upload failed:', err)
+                }
+            }
         }
     }
 
