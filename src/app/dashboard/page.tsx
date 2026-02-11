@@ -23,17 +23,25 @@ export default async function DashboardPage() {
         return redirect('/login')
     }
 
-    const { data: rooms } = await supabase
+    const { data: rooms, error: roomsError } = await supabase
         .from('data_rooms')
         .select('*')
         .eq('owner_id', user.id)
         .order('created_at', { ascending: false })
 
-    const { data: memberRows } = await supabase
+    if (roomsError) {
+        console.error('Dashboard rooms query error:', roomsError, '| user.id:', user.id)
+    }
+
+    const { data: memberRows, error: memberError } = await supabase
         .from('team_members')
         .select('room_id')
         .eq('user_id', user.id)
         .in('role', ['owner', 'admin'])
+
+    if (memberError) {
+        console.error('Dashboard team_members query error:', memberError, '| user.id:', user.id)
+    }
 
     const memberRoomIds = (memberRows ?? []).map((row) => row.room_id)
     const { data: memberRooms } = memberRoomIds.length > 0
