@@ -10,7 +10,10 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'OpenVault <no-reply@example.com>'
 
     if (!apiKey) {
-        console.log('[email:noop]', { to: input.to, subject: input.subject })
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('RESEND_API_KEY is not configured. Email delivery is unavailable.')
+        }
+        console.warn('[email:noop] RESEND_API_KEY not set — email skipped:', input.subject)
         return
     }
 

@@ -37,7 +37,7 @@ export type LinkAvailability = {
     message?: string
 }
 
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000
+const SESSION_TTL_MS = 4 * 60 * 60 * 1000
 
 function parseDate(dateValue: string | null): number | null {
     if (!dateValue) {

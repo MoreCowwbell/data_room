@@ -12,6 +12,12 @@ async function assertRoomOwnership(roomId: string) {
 
 export async function recordUpload(roomId: string, folderId: string | null, path: string, filename: string, mimeType: string) {
     const supabase = await assertRoomOwnership(roomId)
+
+    const isPdf = mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')
+    if (!isPdf) {
+        throw new Error('Only PDF uploads are supported')
+    }
+
     const { error } = await supabase.from('documents').insert({
         room_id: roomId,
         folder_id: folderId,

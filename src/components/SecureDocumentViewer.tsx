@@ -9,6 +9,49 @@ import { Loader2 } from 'lucide-react'
 // Set worker source
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
+function drawCanvasWatermark(canvas: HTMLCanvasElement, text: string) {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const { width, height } = canvas
+    ctx.clearRect(0, 0, width, height)
+    ctx.save()
+    ctx.globalAlpha = 0.15
+    ctx.font = '16px sans-serif'
+    ctx.fillStyle = '#666'
+    ctx.translate(width / 2, height / 2)
+    ctx.rotate((-32 * Math.PI) / 180)
+
+    const stepX = 260
+    const stepY = 100
+    for (let y = -height; y < height; y += stepY) {
+        for (let x = -width; x < width; x += stepX) {
+            ctx.fillText(text, x, y)
+        }
+    }
+    ctx.restore()
+}
+
+function WatermarkCanvas({ width, height, text }: { width: number; height: number; text: string }) {
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+
+    useEffect(() => {
+        if (canvasRef.current) {
+            canvasRef.current.width = width
+            canvasRef.current.height = height
+            drawCanvasWatermark(canvasRef.current, text)
+        }
+    }, [width, height, text])
+
+    return (
+        <canvas
+            ref={canvasRef}
+            className="absolute inset-0 pointer-events-none z-10"
+            style={{ width, height }}
+        />
+    )
+}
+
 export default function SecureDocumentViewer({
     docUrl,
     watermarkText
@@ -17,6 +60,8 @@ export default function SecureDocumentViewer({
     watermarkText: string
 }) {
     const [numPages, setNumPages] = useState<number | null>(null)
+    const [pageWidth, setPageWidth] = useState(Math.min(typeof window !== 'undefined' ? window.innerWidth - 40 : 800, 800))
+    const [pageDimensions, setPageDimensions] = useState<Map<number, { width: number; height: number }>>(new Map())
     const startTimeRef = useRef<number>(0)
     const currentPageRef = useRef<number>(1)
 
@@ -43,6 +88,15 @@ export default function SecureDocumentViewer({
         startTimeRef.current = Date.now()
     }, [])
 
+    // Responsive page width
+    useEffect(() => {
+        function handleResize() {
+            setPageWidth(Math.min(window.innerWidth - 40, 800))
+        }
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
+
     // Intersection Observer to track visible page
     useEffect(() => {
         if (!numPages) return
@@ -52,12 +106,10 @@ export default function SecureDocumentViewer({
                 if (entry.isIntersecting) {
                     const page = Number(entry.target.getAttribute('data-page'))
                     if (page && page !== currentPageRef.current) {
-                        // Page changed. Send beacon for previous page.
                         const now = Date.now()
                         const duration = (now - startTimeRef.current) / 1000
                         sendBeacon(currentPageRef.current, duration)
 
-                        // Reset for new page
                         startTimeRef.current = now
                         currentPageRef.current = page
                     }
@@ -68,7 +120,6 @@ export default function SecureDocumentViewer({
         document.querySelectorAll('.group[data-page]').forEach(el => observer.observe(el))
 
         return () => {
-            // Send final beacon
             const now = Date.now()
             const duration = (now - startTimeRef.current) / 1000
             sendBeacon(currentPageRef.current, duration)
@@ -76,7 +127,7 @@ export default function SecureDocumentViewer({
         }
     }, [numPages, sendBeacon])
 
-    // Also handle visibility change (tab switch)
+    // Handle visibility change (tab switch)
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.hidden) {
@@ -95,10 +146,19 @@ export default function SecureDocumentViewer({
         setNumPages(numPages)
     }
 
+    function onPageLoadSuccess(pageNumber: number, page: { width: number; height: number }) {
+        const scale = pageWidth / page.width
+        setPageDimensions((prev) => {
+            const next = new Map(prev)
+            next.set(pageNumber, { width: pageWidth, height: page.height * scale })
+            return next
+        })
+    }
+
     return (
         <div
             className="relative w-full flex flex-col items-center bg-gray-100 dark:bg-gray-900 p-4 select-none"
-            onContextMenu={(e) => e.preventDefault()} // Disable right click
+            onContextMenu={(e) => e.preventDefault()}
         >
             <Document
                 file={docUrl}
@@ -106,28 +166,28 @@ export default function SecureDocumentViewer({
                 loading={<Loader2 className="w-8 h-8 animate-spin text-gray-500" />}
                 className="shadow-lg"
             >
-                {Array.from(new Array(numPages), (_, index) => (
-                    <div key={`page_${index + 1}`} className="relative mb-4 group" data-page={index + 1}>
-                        <Page
-                            pageNumber={index + 1}
-                            renderTextLayer={false}
-                            renderAnnotationLayer={false}
-                            className="bg-white"
-                            width={Math.min(typeof window !== 'undefined' ? window.innerWidth - 40 : 800, 800)} // Responsive width fix
-                        />
-
-                        {/* Watermark Overlay */}
-                        <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center overflow-hidden">
-                            <div className="opacity-20 transform -rotate-45 text-gray-500 text-2xl font-bold whitespace-nowrap select-none">
-                                {Array.from({ length: 10 }).map((_, i) => (
-                                    <div key={i} className="mb-16">
-                                        {watermarkText} &nbsp;&nbsp;&nbsp; {watermarkText}
-                                    </div>
-                                ))}
-                            </div>
+                {Array.from(new Array(numPages), (_, index) => {
+                    const dims = pageDimensions.get(index + 1)
+                    return (
+                        <div key={`page_${index + 1}`} className="relative mb-4 group" data-page={index + 1}>
+                            <Page
+                                pageNumber={index + 1}
+                                renderTextLayer={false}
+                                renderAnnotationLayer={false}
+                                className="bg-white"
+                                width={pageWidth}
+                                onLoadSuccess={(page) => onPageLoadSuccess(index + 1, page)}
+                            />
+                            {dims && (
+                                <WatermarkCanvas
+                                    width={dims.width}
+                                    height={dims.height}
+                                    text={watermarkText}
+                                />
+                            )}
                         </div>
-                    </div>
-                ))}
+                    )
+                })}
             </Document>
         </div>
     )

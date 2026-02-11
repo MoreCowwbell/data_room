@@ -3,11 +3,16 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isValidEmail } from '@/lib/utils'
 import { headers } from 'next/headers'
 
 export async function login(formData: FormData) {
     const supabase = await createClient()
-    const email = formData.get('email') as string
+    const email = (formData.get('email') as string)?.trim().toLowerCase()
+
+    if (!email || !isValidEmail(email)) {
+        redirect('/login?error=' + encodeURIComponent('A valid email address is required'))
+    }
 
     // Resolve the current site origin for auth callback links.
     const headersList = await headers()
@@ -25,7 +30,6 @@ export async function login(formData: FormData) {
                 : 'http://localhost:3000')
 
     const emailRedirectTo = `${origin}/auth/callback`
-    console.log('Sending login link to:', email, 'Redirect to:', emailRedirectTo)
 
     const { error } = await supabase.auth.signInWithOtp({
         email,

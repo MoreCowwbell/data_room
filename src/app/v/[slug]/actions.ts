@@ -15,15 +15,24 @@ import { sendEmail } from '@/lib/email'
 import { getRequestClientMetadata, getRequestOrigin } from '@/lib/request-context'
 import { issueViewerAuthToken } from '@/lib/viewer-auth'
 import { writeAuditEvent } from '@/lib/audit'
+import { isRateLimited } from '@/lib/rate-limit'
+import { isValidEmail } from '@/lib/utils'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+
+const MAGIC_LINK_MAX = 5
+const MAGIC_LINK_WINDOW_MS = 15 * 60 * 1000 // 5 requests per 15 minutes
 
 export async function requestViewerMagicLink(slug: string, formData: FormData) {
     const supabase = await createClient()
     const email = (formData.get('email') as string | null)?.trim().toLowerCase()
 
-    if (!email) {
-        redirect(`/v/${slug}?error=${encodeURIComponent('Email is required')}`)
+    if (!email || !isValidEmail(email)) {
+        redirect(`/v/${slug}?error=${encodeURIComponent('A valid email address is required')}`)
+    }
+
+    if (isRateLimited(`magic-link:${email}`, MAGIC_LINK_MAX, MAGIC_LINK_WINDOW_MS)) {
+        redirect(`/v/${slug}?error=${encodeURIComponent('Too many requests. Please try again later.')}`)
     }
 
     const link = await fetchLinkBySlug(supabase, slug)
@@ -123,7 +132,7 @@ export async function acceptNda(slug: string) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
-        maxAge: 60 * 60 * 24,
+        maxAge: 60 * 60 * 4,
     })
 
     redirect(`/v/${slug}/view`)

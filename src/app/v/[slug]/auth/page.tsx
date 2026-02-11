@@ -53,13 +53,13 @@ export default async function ViewerAuthCallbackPage({ params, searchParams }: A
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
-        maxAge: 60 * 60 * 24,
+        maxAge: 60 * 60 * 4,
     })
     cookieStore.set(getViewerIdentityCookieName(link.id), encodeViewerEmail(viewerEmail), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
-        maxAge: 60 * 60 * 24,
+        maxAge: 60 * 60 * 4,
     })
 
     await writeAuditEvent(supabase, {

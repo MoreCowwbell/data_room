@@ -24,5 +24,6 @@ export async function writeAuditEvent(supabase: SupabaseClient, input: AuditInpu
 
     if (error) {
         console.error('Failed to write audit event:', error.message)
+        throw new Error(`Audit event write failed: ${error.message}`)
     }
 }

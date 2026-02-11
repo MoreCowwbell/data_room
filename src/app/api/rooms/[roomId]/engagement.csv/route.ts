@@ -22,6 +22,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ room
         return new NextResponse('Not found', { status: 404 })
     }
 
+    if (access.role !== 'owner' && access.role !== 'admin') {
+        return new NextResponse('Forbidden', { status: 403 })
+    }
+
     const url = new URL(req.url)
     const filters = {
         search: url.searchParams.get('search') || undefined,

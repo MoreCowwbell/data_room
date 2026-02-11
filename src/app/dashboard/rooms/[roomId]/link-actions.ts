@@ -20,7 +20,7 @@ type CreateLinkInput = {
 }
 
 function generateSlug() {
-    return randomBytes(12).toString('base64url').toLowerCase()
+    return randomBytes(16).toString('base64url').toLowerCase()
 }
 
 export async function createLink(input: CreateLinkInput) {

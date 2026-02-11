@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ docI
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const availability = evaluateLinkAvailability(link, { enforceMaxViews: false })
+    const availability = evaluateLinkAvailability(link, { enforceMaxViews: true })
     if (!availability.allowed) {
         return new NextResponse(availability.message || 'Link unavailable', { status: 410 })
     }
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ docI
     const timestamp = new Date().toISOString()
 
     const { data: room } = await supabase.from('data_rooms').select('name').eq('id', link.room_id).maybeSingle()
-    const roomName = room?.name || 'OpenVault'
+    const roomName = room?.name || 'Confidential'
     const watermarkText = `${viewerEmail} | ${ip} | ${timestamp} | ${roomName} | ${document.filename}`
 
     for (const page of pdfDoc.getPages()) {
