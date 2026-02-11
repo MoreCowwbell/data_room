@@ -12,6 +12,7 @@ import { NdaTemplateForm } from '@/components/NdaTemplateForm'
 import { TeamManager } from '@/components/TeamManager'
 import { LinkManager } from '@/components/LinkManager'
 import { DeleteVaultDialog } from '@/components/DeleteVaultDialog'
+import { AiPanel } from '@/components/AiPanel'
 import { getUserRoomAccess } from '@/lib/room-access'
 import { Folder, FileText, ChevronRight } from 'lucide-react'
 import {
@@ -155,6 +156,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                 </h1>
                 <div className="flex gap-2">
                     <ThemeToggle />
+                    <AiPanel roomId={roomId} />
                     <Button asChild variant="outline">
                         <Link href={`/dashboard/rooms/${roomId}/engagement`}>Engagement</Link>
                     </Button>
