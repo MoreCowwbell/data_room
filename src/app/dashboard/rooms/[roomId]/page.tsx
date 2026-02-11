@@ -12,6 +12,7 @@ import { NdaTemplateForm } from '@/components/NdaTemplateForm'
 import { TeamManager } from '@/components/TeamManager'
 import { LinkManager } from '@/components/LinkManager'
 import { DeleteVaultDialog } from '@/components/DeleteVaultDialog'
+import { TrashBin } from '@/components/TrashBin'
 import { AiPanel } from '@/components/AiPanel'
 import { getUserRoomAccess } from '@/lib/room-access'
 import { Folder, FileText, ChevronRight } from 'lucide-react'
@@ -93,6 +94,39 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         docsQuery = docsQuery.is('folder_id', null)
     }
     const { data: documents } = await docsQuery
+
+    // Fetch soft-deleted items for trash bin (owner/admin only)
+    const [{ data: deletedFolders }, { data: deletedDocs }] = await Promise.all([
+        supabase
+            .from('folders')
+            .select('id, name, deleted_at')
+            .eq('room_id', roomId)
+            .not('deleted_at', 'is', null)
+            .order('deleted_at', { ascending: false })
+            .limit(50),
+        supabase
+            .from('documents')
+            .select('id, filename, deleted_at')
+            .eq('room_id', roomId)
+            .not('deleted_at', 'is', null)
+            .order('deleted_at', { ascending: false })
+            .limit(50),
+    ])
+
+    const trashItems = [
+        ...(deletedFolders ?? []).map((f) => ({
+            id: f.id,
+            name: f.name,
+            type: 'folder' as const,
+            deletedAt: f.deleted_at,
+        })),
+        ...(deletedDocs ?? []).map((d) => ({
+            id: d.id,
+            name: d.filename,
+            type: 'document' as const,
+            deletedAt: d.deleted_at,
+        })),
+    ].sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime())
 
     const { data: ndaTemplate } = await supabase
         .from('nda_templates')
@@ -273,6 +307,12 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                     }))}
                 />
             </div>
+
+            {(access.role === 'owner' || access.role === 'admin') && trashItems.length > 0 && (
+                <div className="mt-8">
+                    <TrashBin roomId={roomId} items={trashItems} />
+                </div>
+            )}
 
             <div className="mt-8 rounded-lg border bg-card p-4">
                 <h2 className="font-semibold mb-3">Audit Log</h2>

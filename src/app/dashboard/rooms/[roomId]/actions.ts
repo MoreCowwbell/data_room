@@ -307,3 +307,55 @@ export async function saveNdaTemplate(roomId: string, title: string, body: strin
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
 }
+
+export async function restoreDocument(roomId: string, documentId: string) {
+    const supabase = await assertRoomOwnership(roomId)
+
+    const { error } = await supabase
+        .from('documents')
+        .update({ deleted_at: null })
+        .eq('id', documentId)
+        .eq('room_id', roomId)
+        .not('deleted_at', 'is', null)
+
+    if (error) {
+        throw new Error('Failed to restore document')
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: user?.id,
+        action: 'document.restored',
+        targetType: 'document',
+        targetId: documentId,
+    })
+
+    revalidatePath(`/dashboard/rooms/${roomId}`)
+}
+
+export async function restoreFolder(roomId: string, folderId: string) {
+    const supabase = await assertRoomOwnership(roomId)
+
+    const { error } = await supabase
+        .from('folders')
+        .update({ deleted_at: null })
+        .eq('id', folderId)
+        .eq('room_id', roomId)
+        .not('deleted_at', 'is', null)
+
+    if (error) {
+        throw new Error('Failed to restore folder')
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: user?.id,
+        action: 'folder.restored',
+        targetType: 'folder',
+        targetId: folderId,
+    })
+
+    revalidatePath(`/dashboard/rooms/${roomId}`)
+}
