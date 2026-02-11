@@ -30,7 +30,7 @@ export default async function DashboardPage() {
         .order('created_at', { ascending: false })
 
     if (roomsError) {
-        console.error('Dashboard rooms query error:', roomsError, '| user.id:', user.id)
+        console.error('Dashboard rooms query error:', JSON.stringify(roomsError), '| user.id:', user.id)
     }
 
     const { data: memberRows, error: memberError } = await supabase
@@ -40,7 +40,7 @@ export default async function DashboardPage() {
         .in('role', ['owner', 'admin'])
 
     if (memberError) {
-        console.error('Dashboard team_members query error:', memberError, '| user.id:', user.id)
+        console.error('Dashboard team_members query error:', JSON.stringify(memberError), '| user.id:', user.id)
     }
 
     const memberRoomIds = (memberRows ?? []).map((row) => row.room_id)

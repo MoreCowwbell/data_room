@@ -37,6 +37,10 @@ Run the SQL migrations in your Supabase Dashboard (SQL Editor) to create the sch
 *   Copy content from `supabase/migrations/20240523000001_storage.sql`.
 *   Copy content from `supabase/migrations/20260210000002_policies.sql`.
 *   Copy content from `supabase/migrations/20260210000003_storage_delete_update.sql`.
+*   Copy content from `supabase/migrations/20260210000004_alpha_scope_foundation.sql`.
+*   Copy content from `supabase/migrations/20260210000005_viewer_magic_link_nda.sql`.
+*   Copy content from `supabase/migrations/20260210000006_team_roles_policies.sql`.
+*   Copy content from `supabase/migrations/20260210000007_fix_rls_recursion.sql`.
 
 ### 3. Run Locally
 ```bash
