@@ -144,7 +144,7 @@ export function NdaTemplateForm({ roomId, initialTitle = '', initialBody = '', v
                         {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
                         <textarea
                             id="nda-body"
-                            className="min-h-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            className="min-h-[60vh] rounded-md border border-input bg-background px-3 py-2 text-sm"
                             value={body}
                             onChange={(event) => setBody(event.target.value)}
                             required

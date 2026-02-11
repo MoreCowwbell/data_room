@@ -306,6 +306,7 @@ export async function saveNdaTemplate(roomId: string, title: string, body: strin
         .eq('id', roomId)
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
+    revalidatePath(`/dashboard/rooms/${roomId}/nda`)
 }
 
 export async function restoreDocument(roomId: string, documentId: string) {

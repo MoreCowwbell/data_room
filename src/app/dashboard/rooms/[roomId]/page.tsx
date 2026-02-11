@@ -6,16 +6,16 @@ import { CreateFolderDialog } from '@/components/CreateFolderDialog'
 import { CreateLinkDialog } from '@/components/CreateLinkDialog'
 import { FolderActions } from '@/components/FolderActions'
 import { DocumentActions } from '@/components/DocumentActions'
+import { DocumentPreviewDialog } from '@/components/DocumentPreviewDialog'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
-import { NdaTemplateForm } from '@/components/NdaTemplateForm'
 import { TeamManager } from '@/components/TeamManager'
 import { LinkManager } from '@/components/LinkManager'
 import { DeleteVaultDialog } from '@/components/DeleteVaultDialog'
 import { TrashBin } from '@/components/TrashBin'
 import { AiPanel } from '@/components/AiPanel'
 import { getUserRoomAccess } from '@/lib/room-access'
-import { Folder, FileText, ChevronRight } from 'lucide-react'
+import { Folder, ChevronRight } from 'lucide-react'
 import {
     Table,
     TableBody,
@@ -128,13 +128,6 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         })),
     ].sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime())
 
-    const { data: ndaTemplate } = await supabase
-        .from('nda_templates')
-        .select('title, body, version')
-        .eq('room_id', roomId)
-        .eq('is_active', true)
-        .maybeSingle()
-
     const { data: auditEvents } = await supabase
         .from('audit_events')
         .select('id, action, target_type, created_at, metadata')
@@ -194,6 +187,9 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                     <Button asChild variant="outline">
                         <Link href={`/dashboard/rooms/${roomId}/engagement`}>Engagement</Link>
                     </Button>
+                    <Button asChild variant="outline">
+                        <Link href={`/dashboard/rooms/${roomId}/nda`}>NDA Template</Link>
+                    </Button>
                     <CreateLinkDialog roomId={roomId} linkType="room" targetLabel={room.name} />
                     <CreateFolderDialog roomId={roomId} parentId={folderId ?? null} />
                     <UploadButton roomId={roomId} folderId={folderId ?? null} />
@@ -237,8 +233,16 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                         ))}
                         {documents?.map((doc) => (
                             <TableRow key={doc.id}>
-                                <TableCell><FileText className="w-5 h-5 text-muted-foreground" /></TableCell>
-                                <TableCell>{doc.filename}</TableCell>
+                                <TableCell></TableCell>
+                                <TableCell>
+                                    <DocumentPreviewDialog
+                                        roomId={roomId}
+                                        documentId={doc.id}
+                                        filename={doc.filename}
+                                        role={access.role}
+                                        userEmail={user.email || ''}
+                                    />
+                                </TableCell>
                                 <TableCell>{new Date(doc.created_at).toLocaleDateString()}</TableCell>
                                 <TableCell>-</TableCell>
                                 <TableCell>
@@ -278,15 +282,6 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                         maxViews: link.max_views,
                         viewCount: link.view_count ?? 0,
                     }))}
-                />
-            </div>
-
-            <div className="mt-8">
-                <NdaTemplateForm
-                    roomId={roomId}
-                    initialTitle={ndaTemplate?.title}
-                    initialBody={ndaTemplate?.body}
-                    version={ndaTemplate?.version}
                 />
             </div>
 
