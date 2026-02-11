@@ -152,6 +152,11 @@ Open [http://localhost:3000](http://localhost:3000) to access the application.
 
 ```
 data_room/
+├── docs/                           # Project documentation
+│   ├── PRD.md                      # Product Requirements Document
+│   ├── ALPHA.md                    # Alpha scope & acceptance criteria
+│   ├── TODOS.md                    # Open work items
+│   └── API_REFERENCE.md            # Route surface & data schemas
 ├── src/
 │   ├── app/
 │   │   ├── dashboard/              # Admin dashboard & room management
@@ -181,20 +186,26 @@ data_room/
 │       ├── audit.ts                # Audit event logging
 │       └── nda.ts                  # NDA template & acceptance logic
 ├── supabase/
-│   └── migrations/                 # 8 SQL migrations
+│   └── migrations/                 # SQL migrations
 ├── public/
+├── CONTRIBUTING.md                 # Contributor guidelines
 └── package.json
 ```
 
+## Documentation
+
+Detailed documentation lives in the [`docs/`](docs/) directory:
+
+| Document | Description |
+|----------|-------------|
+| [PRD.md](docs/PRD.md) | Product Requirements Document (v2.0) |
+| [ALPHA.md](docs/ALPHA.md) | Alpha scope, acceptance criteria, and locked decisions |
+| [TODOS.md](docs/TODOS.md) | Current status and open work items |
+| [API_REFERENCE.md](docs/API_REFERENCE.md) | Route surface and data schemas |
+
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Commit your changes (`git commit -m "Add my feature"`)
-4. Push to the branch (`git push origin feature/my-feature`)
-5. Open a Pull Request
-
-Please keep pull requests small and focused.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on forking, branching, committing, and submitting pull requests.
 
 ## License
 

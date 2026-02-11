@@ -23,6 +23,15 @@
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+*.swp
+
+# IDE
+.idea/
+.vscode/
+
+# Supabase local
+.supabase/
 
 # debug
 npm-debug.log*

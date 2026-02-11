@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { VAULT_TEMPLATES } from '@/lib/vault-templates'
-import { generateGuidePdf } from '@/lib/generate-guide-pdf'
 
 export async function createDataRoom(formData: FormData) {
     const supabase = await createClient()
@@ -62,37 +61,6 @@ export async function createDataRoom(formData: FormData) {
         const { error: foldersError } = await supabase.from('folders').insert(folderInserts)
         if (foldersError) {
             console.error('Error creating template folders:', foldersError)
-        }
-
-        // Generate and upload guide PDF
-        try {
-            const pdfBytes = await generateGuidePdf(template)
-            const storagePath = `${roomId}/${template.guideFilename}`
-
-            const { error: uploadError } = await supabase.storage
-                .from('documents')
-                .upload(storagePath, pdfBytes, {
-                    contentType: 'application/pdf',
-                    upsert: false,
-                })
-
-            if (uploadError) {
-                console.error('Error uploading guide PDF:', uploadError)
-            } else {
-                const { error: docError } = await supabase.from('documents').insert({
-                    room_id: roomId,
-                    folder_id: null,
-                    storage_path: storagePath,
-                    filename: template.guideFilename,
-                    mime_type: 'application/pdf',
-                    status: 'ready',
-                })
-                if (docError) {
-                    console.error('Error recording guide document:', docError)
-                }
-            }
-        } catch (err) {
-            console.error('Error generating guide PDF:', err)
         }
     }
 
