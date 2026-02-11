@@ -1,4 +1,4 @@
-# Data Room Application Walkthrough
+# OpenVault Application Walkthrough
 
 ## Overview
 This is a secure Virtual Data Room (VDR) application built with Next.js 15, Supabase, and Tailwind CSS. It features secure document viewing, email gating, and detailed analytics.
@@ -8,7 +8,7 @@ This is a secure Virtual Data Room (VDR) application built with Next.js 15, Supa
     *   Admin Login via Magic Link / OTP (Supabase Auth).
     *   Visitor Authentication via Email Gating (Cookie-based sessions).
 2.  **Document Management**:
-    *   Create Data Rooms.
+    *   Create Vaults.
     *   Create Folders.
     *   Upload Documents (PDF, etc.) to private Supabase Storage.
 3.  **Secure Viewer**:

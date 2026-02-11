@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { NdaTemplateForm } from '@/components/NdaTemplateForm'
 import { TeamManager } from '@/components/TeamManager'
 import { LinkManager } from '@/components/LinkManager'
+import { DeleteVaultDialog } from '@/components/DeleteVaultDialog'
 import { getUserRoomAccess } from '@/lib/room-access'
 import { Folder, FileText, ChevronRight } from 'lucide-react'
 import {
@@ -137,7 +138,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
     return (
         <div className="flex flex-col min-h-screen p-8 bg-background text-foreground">
             <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <Link href="/dashboard" className="hover:underline">Dashboard</Link>
+                <Link href="/dashboard" className="hover:underline">Your Vaults</Link>
                 <ChevronRight className="w-4 h-4" />
                 <Link href={`/dashboard/rooms/${roomId}`} className="hover:underline">{room.name}</Link>
                 {currentFolder && (
@@ -287,6 +288,16 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                     ) : null}
                 </div>
             </div>
+
+            {access.role === 'owner' && (
+                <div className="mt-8 rounded-lg border border-destructive/50 bg-card p-4">
+                    <h2 className="font-semibold mb-1 text-destructive">Danger Zone</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        Permanently delete this vault and all of its data. This action cannot be undone.
+                    </p>
+                    <DeleteVaultDialog roomId={roomId} roomName={room.name} />
+                </div>
+            )}
         </div>
     )
 }

@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ docI
     const timestamp = new Date().toISOString()
 
     const { data: room } = await supabase.from('data_rooms').select('name').eq('id', link.room_id).maybeSingle()
-    const roomName = room?.name || 'Data Room'
+    const roomName = room?.name || 'OpenVault'
     const watermarkText = `${viewerEmail} | ${ip} | ${timestamp} | ${roomName} | ${document.filename}`
 
     for (const page of pdfDoc.getPages()) {

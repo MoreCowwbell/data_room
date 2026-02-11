@@ -1,9 +1,9 @@
-# Data Room
+# OpenVault
 
 A secure, open-source Virtual Data Room (VDR) for sharing confidential documents with full control over access, engagement tracking, and NDA enforcement. Built for founders, investors, and deal teams who need to know exactly who viewed what, for how long, and whether they signed the NDA.
 
 <!-- Screenshot placeholder: add a product screenshot here -->
-<!-- <img width="1098" alt="Data Room Dashboard" src="..." /> -->
+<!-- <img width="1098" alt="OpenVault Dashboard" src="..." /> -->
 
 ## Table of Contents
 
@@ -20,7 +20,7 @@ A secure, open-source Virtual Data Room (VDR) for sharing confidential documents
 
 ## Overview
 
-Data Room lets you upload documents, generate secure sharing links, and track every interaction. Visitors access documents through a canvas-based viewer that prevents downloads and applies dynamic watermarks with their email and IP address. Every page view, session, and download is logged with full attribution.
+OpenVault lets you upload documents, generate secure sharing links, and track every interaction. Visitors access documents through a canvas-based viewer that prevents downloads and applies dynamic watermarks with their email and IP address. Every page view, session, and download is logged with full attribution.
 
 **Key Capabilities:**
 - **Secure Canvas Viewer**: Renders PDFs on canvas to prevent Save As, with right-click disabled
@@ -33,7 +33,7 @@ Data Room lets you upload documents, generate secure sharing links, and track ev
 ## Features
 
 ### Document Management
-- Create isolated data rooms with hierarchical folder structures
+- Create isolated vaults with hierarchical folder structures
 - Upload PDFs to private Supabase Storage
 - Rename, soft-delete, and organize documents and folders
 
@@ -142,7 +142,7 @@ Open [http://localhost:3000](http://localhost:3000) to access the application.
 ### Testing the Flow
 
 1. **Login** — Go to `/login` and enter your email. Check your inbox for the Magic Link.
-2. **Create a Room** — From the dashboard, create a new data room (e.g., "Series A").
+2. **Create a Vault** — From the dashboard, create a new vault (e.g., "Series A").
 3. **Upload** — Open the room and upload a PDF document.
 4. **Share** — Create a sharing link with your desired settings (email gating, expiration, NDA).
 5. **View** — Open the link in an incognito window. Enter a visitor email and view the document. Note the watermark.

@@ -7,7 +7,7 @@ type SendEmailInput = {
 
 export async function sendEmail(input: SendEmailInput): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Data Room <no-reply@example.com>'
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'OpenVault <no-reply@example.com>'
 
     if (!apiKey) {
         console.log('[email:noop]', { to: input.to, subject: input.subject })

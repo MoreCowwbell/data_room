@@ -65,7 +65,7 @@ export default async function DashboardPage() {
         <div className="flex min-h-screen flex-col bg-background p-8 text-foreground">
             <div className="flex justify-between items-center mb-8 max-w-4xl mx-auto w-full">
                 <div>
-                    <h1 className="text-3xl font-bold">Dashboard</h1>
+                    <h1 className="text-3xl font-bold">OpenVault</h1>
                     <p className="text-muted-foreground">Welcome, {user.email}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export default async function DashboardPage() {
                         </Link>
                     ))}
                     {accessibleRooms.length === 0 && (
-                        <p className="py-8 text-center text-muted-foreground">No data rooms found. Create one to get started.</p>
+                        <p className="py-8 text-center text-muted-foreground">No vaults yet. Create one to get started.</p>
                     )}
                 </div>
             </div>

@@ -46,7 +46,7 @@ export async function inviteTeamMember(roomId: string, email: string) {
     const inviteUrl = `${origin}/dashboard/team-invite?token=${encodeURIComponent(rawToken)}`
     await sendEmail({
         to: normalizedEmail,
-        subject: 'You have been invited to collaborate in Data Room',
+        subject: 'You have been invited to collaborate on OpenVault',
         html: `<p>You were invited as an admin collaborator.</p><p><a href="${inviteUrl}">${inviteUrl}</a></p><p>This invite expires in 7 days.</p>`,
         text: `You were invited as an admin collaborator.\n${inviteUrl}\n\nThis invite expires in 7 days.`,
     })

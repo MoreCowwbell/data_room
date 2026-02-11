@@ -70,7 +70,7 @@ export default async function EngagementPage({ params, searchParams }: Engagemen
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-semibold">Engagement Dashboard</h1>
+                        <h1 className="text-2xl font-semibold">Engagement</h1>
                         <p className="text-sm text-muted-foreground">{room.name}</p>
                     </div>
                     <div className="flex items-center gap-2">

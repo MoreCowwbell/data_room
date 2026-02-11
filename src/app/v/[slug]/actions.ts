@@ -42,7 +42,7 @@ export async function requestViewerMagicLink(slug: string, formData: FormData) {
 
     await sendEmail({
         to: email,
-        subject: 'Your secure data room access link',
+        subject: 'Your secure OpenVault access link',
         html: `<p>Use the secure link below to access your shared documents.</p><p><a href="${authUrl}">${authUrl}</a></p><p>This link expires in 15 minutes.</p>`,
         text: `Use this secure link to access your shared documents:\n${authUrl}\n\nThis link expires in 15 minutes.`,
     })

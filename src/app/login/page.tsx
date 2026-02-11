@@ -17,7 +17,7 @@ export default async function LoginPage({
                 <CardHeader>
                     <CardTitle className="text-2xl">Login</CardTitle>
                     <CardDescription>
-                        Enter your email to access the Data Room
+                        Enter your email to access OpenVault
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
