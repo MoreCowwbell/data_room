@@ -2,11 +2,20 @@ import { NextResponse } from 'next/server'
 // The client you created from the Server-Side Auth instructions
 import { createClient } from '@/lib/supabase/server'
 
+function sanitizeRedirectPath(value: string | null): string {
+    const fallback = '/dashboard'
+    if (!value) return fallback
+    // Must start with a single slash and not contain protocol or double-slash
+    if (!value.startsWith('/') || value.startsWith('//') || value.includes('://')) {
+        return fallback
+    }
+    return value
+}
+
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
-    // if "next" is in param, use it as the redirect URL
-    const next = searchParams.get('next') ?? '/dashboard'
+    const next = sanitizeRedirectPath(searchParams.get('next'))
 
     if (code) {
         const supabase = await createClient()
