@@ -13,7 +13,7 @@ OpenVault is a Next.js 16 + Supabase virtual data room application targeting sta
 
 The core user flows -- room/folder/document CRUD, three-tier scoped sharing (room/folder/document), viewer magic-link authentication, NDA gating with version-tracked templates, canvas-based watermarked viewing, server-side watermarked PDF downloads, engagement analytics with CSV export, team collaboration with invite flows, and folder-level permissions on shared links -- are all implemented and functional.
 
-However, the codebase has **5 critical security issues** that must be resolved before any external deployment: API key encryption using base64 encoding (trivially reversible), a middleware wiring gap that prevents session refresh, a missing authorization check on the folders API, an open redirect in the auth callback, and HTML injection in notification email templates. Additionally, the in-memory rate limiter provides no protection in serverless environments, zero automated tests exist across 85 TypeScript files, and documentation has significant drift from the implementation. The recommended deployment path is **Vercel + Supabase Cloud** -- achievable in 2-3 days for $20-45/month, with the main technical blocker being a Vercel 4.5MB response body limit on file-serving routes that requires refactoring to Supabase signed URLs.
+~~The codebase had **5 critical security issues**~~ -- all resolved: API key encryption upgraded from Base64 to AES-256-GCM, middleware wiring confirmed as false positive (Next.js 16 proxy.ts pattern), folders API authorization added, open redirect fixed, and HTML injection in email templates escaped. Additionally, the in-memory rate limiter provides no protection in serverless environments, zero automated tests exist across 85 TypeScript files, and documentation has significant drift from the implementation. The recommended deployment path is **Vercel + Supabase Cloud** -- achievable in 2-3 days for $20-45/month, with the main technical blocker being a Vercel 4.5MB response body limit on file-serving routes that requires refactoring to Supabase signed URLs.
 
 ---
 
@@ -315,11 +315,11 @@ RootLayout (layout.tsx)
 
 | # | Issue | Location | Impact | Fix |
 |---|-------|----------|--------|-----|
-| S1 | **API key "encryption" is Base64 encoding** -- trivially reversible. Anyone with DB read access decodes all user API keys instantly | `src/lib/ai/keys.ts:8-14` | All AI provider keys compromised with DB access | Use AES-256-GCM with `AI_KEY_ENCRYPTION_SECRET` env var, or Supabase Vault |
-| S2 | **Next.js middleware not wired** -- `src/proxy.ts` exports `proxy()` but no `middleware.ts` at project root re-exports it. `updateSession()` never runs; Supabase auth tokens never refresh | `src/proxy.ts` | Admin sessions silently expire; auth state becomes stale | Create root `middleware.ts` that re-exports: `export { proxy as middleware, config } from './src/proxy'` |
-| S3 | **Folders API missing authorization** -- verifies user is authenticated but does not check room ownership/membership. Any authenticated user can create folders in any room | `src/app/api/rooms/[roomId]/folders/route.ts` | Data integrity breach; unauthorized folder creation | Add `requireRoomAccess(roomId)` check before folder creation |
-| S4 | **Open redirect in auth callback** -- `next` query parameter used directly in `NextResponse.redirect()` without validation | `src/app/auth/callback/route.ts` | Phishing vector; attacker redirects user to malicious site after auth | Validate `next` starts with `/` and contains no `//` or protocol scheme |
-| S5 | **HTML injection in notification emails** -- viewer email, link name, and slug interpolated into HTML templates without escaping | `src/lib/notifications.ts:50-58` | XSS via crafted email addresses in notification emails sent to admins | HTML-escape all dynamic values before embedding in email templates |
+| S1 | ~~**API key "encryption" is Base64 encoding**~~ **FIXED** -- Now uses AES-256-GCM with `AI_KEY_ENCRYPTION_SECRET` env var | `src/lib/ai/keys.ts` | ~~All AI provider keys compromised with DB access~~ | Fixed: AES-256-GCM with random IV and auth tag |
+| S2 | ~~**Next.js middleware not wired**~~ **FALSE POSITIVE** -- Next.js 16 renamed `middleware.ts` to `proxy.ts`. The existing `src/proxy.ts` is correctly detected and used as middleware by the framework | `src/proxy.ts` | No impact; sessions refresh correctly | No fix needed; `proxy.ts` is the correct pattern in Next.js 16 |
+| S3 | ~~**Folders API missing authorization**~~ **FIXED** -- Now uses `getUserRoomAccess(roomId)` to verify ownership/membership | `src/app/api/rooms/[roomId]/folders/route.ts` | ~~Data integrity breach~~ | Fixed: replaced existence check with proper auth |
+| S4 | ~~**Open redirect in auth callback**~~ **FIXED** -- `next` parameter now validated to ensure it is a relative path | `src/app/auth/callback/route.ts` | ~~Phishing vector~~ | Fixed: validates no `//` or `://` in redirect target |
+| S5 | ~~**HTML injection in notification emails**~~ **FIXED** -- All dynamic values now HTML-escaped via `escapeHtml()` utility | `src/lib/notifications.ts`, `src/app/v/[slug]/actions.ts` | ~~XSS via crafted email addresses~~ | Fixed: `escapeHtml()` applied to all interpolated values |
 
 ### HIGH -- Should Fix Before GA
 
@@ -330,7 +330,7 @@ RootLayout (layout.tsx)
 | S8 | `link_access_logs` missing UPDATE RLS policy | Migration `20260210000004` | Beacon `last_active_at` updates silently fail | Add UPDATE policy for anon/authenticated on `last_active_at` |
 | S9 | CSP allows `unsafe-inline` + `unsafe-eval` for scripts | `next.config.ts:33` | Defeats XSS protection provided by CSP | Use nonce-based approach; `wasm-unsafe-eval` for pdf.js |
 | S10 | No `file_size` column tracking on document upload | `src/app/dashboard/rooms/[roomId]/actions.ts` | AI tools reference `file_size` but it always returns null | Add `file_size bigint` column to `documents` table |
-| S11 | HTML injection in magic link email template | `src/app/v/[slug]/actions.ts` | XSS via crafted viewer email | HTML-escape user-provided values in email templates |
+| S11 | ~~HTML injection in magic link email template~~ **FIXED** (with S5) | `src/app/v/[slug]/actions.ts` | ~~XSS via crafted viewer email~~ | Fixed: `escapeHtml()` applied to authUrl in email template |
 | S12 | Download endpoint does not enforce max views | `src/app/api/download/[docId]/route.ts` | Downloads possible after max views reached | Pass `{ enforceMaxViews: true }` to `evaluateLinkAvailability()` |
 
 ### WARNING -- Should Address
