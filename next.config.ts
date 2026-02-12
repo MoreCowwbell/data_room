@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
@@ -30,7 +32,10 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://unpkg.com",
+              // Dev mode: webpack HMR requires unsafe-eval; prod: restrict to wasm-unsafe-eval only
+              isDev
+                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com"
+                : "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://unpkg.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self' https://fonts.gstatic.com",
