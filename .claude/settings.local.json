@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git add:*)",
-      "Bash(timeout 10 npx next dev:*)",
-      "Bash(git commit:*)"
-    ]
-  }
-}
