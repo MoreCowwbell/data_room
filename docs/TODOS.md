@@ -7,40 +7,44 @@
 
 ## Critical — Blocks Alpha Testing
 
-- [ ] **Integrate Resend email provider** — `sendEmail()` in `src/lib/email.ts` falls back to `console.log` when `RESEND_API_KEY` is missing. Viewer magic links, first-open notifications, and team invites all depend on real email delivery. Add `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to `.env.local`.
-- [ ] **Enforce PDF-only uploads in alpha** — Execution plan requires upload validation with clear error messaging. Current `UploadButton` does not reject non-PDF files. Alpha scope is PDF-only viewer; Office conversion is deferred.
-- [ ] **Remove debug console.log statements** — `src/app/login/actions.ts:28` logs user emails to console. Clean up before any external testing.
+- [x] **Integrate Resend email provider** — `sendEmail()` in `src/lib/email.ts` now uses Resend API. Falls back to `console.log` in dev when key is missing or domain is unverified.
+- [x] **Enforce PDF-only uploads in alpha** — `UploadButton.tsx` validates MIME type client-side and rejects non-PDF files.
+- [x] **Remove debug console.log statements** — `src/app/login/actions.ts` no longer logs user emails to console.
 
 ---
 
 ## High — Required Before Alpha Exit (PRD M1 Checklist)
 
-- [ ] **Basic privacy policy page** — PRD M1 milestone item. No `/privacy` route exists. Needs simple static page explaining data collection.
-- [ ] **Cookie consent for analytics** — PRD Section 8.5: "Cookie consent for analytics." Not implemented; viewer sessions use cookies with no consent banner.
-- [ ] **Soft-delete restore UI** — Execution plan: "Add restore workflow for soft-deleted docs/folders in backlog before alpha exit." `deleted_at` columns exist but no UI to recover accidentally deleted items.
-- [ ] **Access Groups** — PRD Section 7.3 describes named groups (e.g., "Series A VCs", "Angel Investors") with per-group folder/document rules. `access_groups` and `access_group_rules` tables are in the PRD schema but **not in any migration**, and no UI exists. Decide: build for alpha or defer.
+- [x] **Basic privacy policy page** — `/privacy` route exists at `src/app/privacy/page.tsx`.
+- [x] **Cookie consent for analytics** — `CookieConsent.tsx` component implemented with accept/decline.
+- [x] **Soft-delete restore UI** — `TrashBin.tsx` component with restore functionality for deleted docs/folders.
+- [ ] **Access Groups** — PRD Section 7.3 describes named groups with per-group rules. **Not implemented as designed.** Instead, folder-level permissions use a `permissions.allowed_folders` JSONB column on `shared_links` with `FolderPicker.tsx` UI. Decide if named groups are still needed or if the JSONB approach is sufficient.
 
 ---
 
 ## Medium — Hardening & Quality
 
-- [ ] **Regression / threat test suite** — Alpha Execution Plan S1-08: test tampered slugs, expired links, max-views-reached links, revoked links. No test framework is set up (no jest/vitest config). At minimum, create a manual E2E checklist; ideally add automated tests.
-- [ ] **Unit tests for permission evaluators** — Execution plan test strategy: "Unit tests for permission evaluators and helper utilities" (`link-access.ts`, `room-access.ts`, `viewer-auth.ts`). No test files exist anywhere in the project.
-- [ ] **Integration tests for key routes** — Execution plan: stream auth, link expiry/max views, NDA gating, download enforcement, CSV export. None exist.
+- [x] **Rate limiting on viewer auth** — `src/lib/rate-limit.ts` implements sliding window (5 requests / 15 min). Note: in-memory only; needs Redis for production.
+- [x] **Environment variable validation** — `src/lib/env.ts` + `src/instrumentation.ts` validates required/recommended vars at startup.
+- [ ] **Regression / threat test suite** — No test framework is set up (no jest/vitest config). At minimum, create a manual E2E checklist; ideally add automated tests.
+- [ ] **Unit tests for permission evaluators** — `link-access.ts`, `room-access.ts`, `viewer-auth.ts` have zero test coverage.
+- [ ] **Integration tests for key routes** — Stream auth, link expiry/max views, NDA gating, download enforcement, CSV export. None exist.
 - [ ] **Error monitoring (Sentry or equivalent)** — PRD Section 8.4 requires structured error monitoring. Not set up.
-- [ ] **Product analytics (PostHog or equivalent)** — PRD Section 8.4 requires product analytics. Not set up (separate from viewer page-view analytics which work).
-- [ ] **Email deliverability setup** — PRD Section 14 risk: magic link emails landing in spam. Need SPF/DKIM/DMARC configuration for the sending domain once Resend is live.
+- [ ] **Product analytics (PostHog or equivalent)** — PRD Section 8.4 requires product analytics. Not set up.
+- [ ] **Email deliverability setup** — SPF/DKIM/DMARC configuration for the sending domain once deployed to production.
 
 ---
 
 ## Low — Polish & Post-Alpha Prep
 
-- [ ] **Cloudflare Tunnel for external alpha testing** — PRD Section 11 and Execution Plan Section 8: "Use Cloudflare Tunnel for external testing." Not configured. Need to add tunnel URL to Supabase Auth redirect allowlist.
-- [ ] **Verify Resend sending domain during Cloudflare migration** — Currently using `onboarding@resend.dev` (sandbox), which only allows sending to the account owner's email. When setting up the Cloudflare domain, verify it in Resend (resend.com/domains), add DNS records (DKIM/SPF/CNAME), and update `RESEND_FROM_EMAIL` to `noreply@yourdomain.com`. Required for magic links, team invites, and notifications to work for external users.
-- [ ] **visitor_engagement SQL view** — PRD Section 9 defines a `visitor_engagement` database view for engagement aggregation. Current implementation computes this in application code (`src/lib/engagement.ts`). Consider creating the DB view for consistency and query performance.
-- [ ] **Dashboard TTFB performance** — PRD Section 8.2: "<1.5s at p50". Not benchmarked. Dashboard queries may need indexing as data grows.
+- [ ] **Deploy to Vercel** — PRD Section 11 production path. See `docs/DEPLOYMENT.md` for migration plan.
+- [ ] **Verify Resend sending domain** — Currently using `onboarding@resend.dev` (sandbox). Need to verify production domain in Resend, add DNS records (DKIM/SPF/CNAME), and update `RESEND_FROM_EMAIL`.
+- [ ] **visitor_engagement SQL view** — PRD Section 9 defines a DB view. Current implementation computes in application code (`src/lib/engagement.ts`). Consider creating the DB view for query performance.
+- [ ] **Dashboard TTFB performance** — PRD Section 8.2: "<1.5s at p50". Not benchmarked. Room page runs 8+ sequential queries.
 - [ ] **Viewer first-page render performance** — PRD Section 8.2: "<2.5s for PDFs <10MB at p50". Not benchmarked.
-- [ ] **Manual data deletion pathway** — PRD Section 8.5: "Manual data deletion pathway on request." No admin tool or documented process exists.
+- [ ] **Manual data deletion pathway** — PRD Section 8.5: "Manual data deletion pathway on request." No admin tool exists.
+- [ ] **Update PRD.md data model** — Section 9 schema has diverged from actual migrations (access_groups tables don't exist, page_views/notifications schemas differ).
+- [ ] **Document AI panel in docs** — Fully implemented but zero documentation. Add to API_REFERENCE.md and README.md.
 
 ---
 
@@ -64,4 +68,4 @@ These are **intentionally out of scope** for alpha per PRD Section 3:
 
 ---
 
-*Last updated: 2026-02-10*
+*Last updated: 2026-02-11*

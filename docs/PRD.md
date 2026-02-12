@@ -41,28 +41,36 @@ Build a secure, analytics-first Virtual Data Room for startup fundraising that c
 
 ## 4. Current State (As Implemented)
 
+> Updated 2026-02-11. Most alpha features are now implemented.
+
 ### Implemented
 - Admin login with Supabase auth (magic link flow)
-- Data room creation
-- Folder creation
-- File upload to private Supabase storage
-- Folder/file rename and delete
-- Share links (document links)
-- Optional email gate for viewers
-- Secure viewer route + watermark overlay
-- Visitor/page-duration analytics beacon
-- Dark mode toggle
-
-### Missing / To Build for Alpha
-- **Room-level and folder-level sharing** (document-level exists)
-- **Investor Engagement Dashboard** (sortable VC access database + CSV export)
-- **Magic link authentication for viewers** (replace lightweight email gate)
-- **Link constraints:** expiration, max views, revocation UX
-- **Download controls** with burned watermark (viewer email + IP + timestamp)
-- **NDA gate** with acceptance logging
-- **Immediate notification** on first link open
-- Team member roles/permissions (Owner/Admin only for alpha)
+- Data room creation (with fundraising template)
+- Folder creation with unlimited nesting
+- File upload to private Supabase storage (PDF only in alpha)
+- Folder/file rename, soft-delete, and restore (TrashBin UI)
+- Share links — all three scopes: room-level, folder-level, document-level
+- Optional email gate for viewers with magic link authentication
+- Secure canvas-based viewer with dynamic watermark overlay
+- Visitor/page-duration analytics beacon (Intersection Observer + Beacon API)
+- Investor engagement dashboard (sortable, filterable table + CSV export)
+- Link constraints: expiration, max views, active/revoke toggle
+- Download controls with burned watermark (viewer email + IP + timestamp via pdf-lib)
+- NDA gate with acceptance logging and hash-versioned templates
+- Immediate first-open email notification (to owner + admins via Resend)
+- Team member roles (Owner/Admin) with email invite flow
 - Audit logging for sensitive actions
+- Folder-level permissions on room links (allowed_folders JSONB + FolderPicker UI)
+- AI assistant panel (multi-provider: Anthropic, OpenAI, Google — BYOK)
+- Privacy policy page + cookie consent banner
+- Dark mode toggle
+- Environment validation at startup
+
+### Remaining for Alpha Exit
+- Zero automated tests (no test framework configured)
+- Error monitoring (Sentry) not set up
+- Production deployment (target: Vercel + Supabase Cloud)
+- Email deliverability setup (SPF/DKIM/DMARC for production domain)
 
 ### Deferred to Post-Alpha
 - Document versioning UI
@@ -70,6 +78,8 @@ Build a secure, analytics-first Virtual Data Room for startup fundraising that c
 - Daily digest notifications
 - Advanced team roles (Editor, Analyst)
 - Direct CRM integrations
+- Access groups (replaced by JSONB folder permissions for alpha)
+- Analytics visualizations (charts, heat maps, high-intent signals)
 
 ---
 
@@ -117,7 +127,7 @@ Build a secure, analytics-first Virtual Data Room for startup fundraising that c
   2. Enters email address
   3. Receives magic link email
   4. Clicks link → authenticated session created
-- Session TTL: 24 hours (short-lived for security)
+- Session TTL: 4 hours (short-lived for security; configured in `link-access.ts`)
 - Session scoped to specific shared link
 - No account creation required
 
@@ -128,7 +138,7 @@ Build a secure, analytics-first Virtual Data Room for startup fundraising that c
 - **File CRUD:** upload, rename, move, delete with metadata tracking
 - **Bulk upload:** drag-and-drop with progress indicators and retry on failure
 - **Soft-delete:** recoverable deletes for accidental removal (30-day retention)
-- **Supported formats:** PDF, PPTX, DOCX, KEY, XLSX
+- **Supported formats:** PDF only (alpha scope). PPTX, DOCX, KEY, XLSX deferred to post-alpha.
 
 ### 7.3 Sharing and Access Control
 
@@ -151,10 +161,12 @@ Build a secure, analytics-first Virtual Data Room for startup fundraising that c
 | Require NDA | Must accept NDA before viewing | Off |
 | Active toggle | Instantly enable/disable link | On |
 
-**Access Groups (Alpha Scope)**
-- Define named groups (e.g., "Series A VCs", "Angel Investors")
-- Assign allowed folders/documents per group
-- Assign links to groups for bulk permission management
+**Folder-Level Permissions (Alpha Implementation)**
+- Room-type links can restrict access to specific folders via `permissions.allowed_folders` JSONB
+- `FolderPicker.tsx` UI for selecting which folders a link grants access to
+- `link_allows_document()` DB function enforces folder subtree access recursively
+
+> **Note:** The original PRD designed `access_groups` and `access_group_rules` tables for named investor segments. These were not implemented. Instead, per-link folder permissions provide equivalent granularity. Named groups may be revisited post-alpha if needed for multi-link bulk management.
 
 ### 7.4 Secure Viewer
 
@@ -377,6 +389,18 @@ analyst@a]6z.com,a]6z.com,2026-02-09T10:00:00Z,2026-02-09T10:45:00Z,8.2,1,"Pitch
 
 ## 9. Data Model
 
+> **Note (2026-02-11):** The schema below was the original design. The actual implementation has diverged in several areas:
+> - `access_groups` and `access_group_rules` tables were **not created**. Folder permissions use `permissions.allowed_folders` JSONB on `shared_links` instead.
+> - `viewer_sessions` table exists but is **not used** by application code. Visitor sessions are tracked via `link_access_logs`.
+> - `page_views` uses `link_id` + `visitor_session_token` columns (not `session_id`).
+> - `download_events` uses `link_id` + `visitor_session_token` columns (not `session_id`).
+> - `notifications` uses `link_id`, `event_type`, `recipient_email` (not `recipient_id`, `type`).
+> - `audit_events` includes `actor_type` column not shown below.
+> - AI tables added in migration 9: `ai_api_keys`, `ai_consent`, `ai_usage_logs`, `document_text_cache`.
+> - `shared_links` does not reference `access_group_id`; instead has `permissions jsonb`.
+>
+> See `supabase/migrations/` for the authoritative schema.
+
 ### Core Tables
 
 ```sql
@@ -589,33 +613,31 @@ group by vs.visitor_email, sl.room_id, sl.id, sl.slug, sl.name;
 
 ## 10. API / Route Surface
 
+> **Note (2026-02-11):** The original design listed REST API routes for CRUD operations (`/api/rooms`, `/api/folders`, `/api/documents`, `/api/links`). In the implementation, these use **Next.js Server Actions** instead. See [API_REFERENCE.md](API_REFERENCE.md) for the accurate, up-to-date route listing.
+
 ### Dashboard Routes
-- `/dashboard` — room list
-- `/dashboard/rooms/[roomId]` — file/folder management
+- `/dashboard` — room list (owned + team rooms)
+- `/dashboard/rooms/[roomId]` — room detail (files, folders, links, team, audit, trash, AI)
 - `/dashboard/rooms/[roomId]/engagement` — investor engagement dashboard
-- `/dashboard/rooms/[roomId]/analytics` — document/page analytics
-- `/dashboard/rooms/[roomId]/links` — manage shared links
-- `/dashboard/rooms/[roomId]/team` — team members
-- `/dashboard/rooms/[roomId]/settings` — room settings, NDA templates
+- `/dashboard/rooms/[roomId]/nda` — NDA template management
+- `/dashboard/team-invite` — accept team invite
 
 ### API Routes
-- `/api/rooms` — room CRUD
-- `/api/folders` — folder CRUD
-- `/api/documents` — document CRUD
-- `/api/links` — shared link CRUD
-- `/api/stream/[docId]` — protected document streaming
-- `/api/download/[docId]` — watermarked download generation
-- `/api/analytics/beacon` — client-side analytics ingestion
-- `/api/analytics/export` — CSV export endpoint
-- `/api/nda/accept` — NDA acceptance endpoint
-- `/api/notifications/send` — trigger notification (internal)
+- `/api/stream/[docId]` — protected document streaming (viewer session auth)
+- `/api/download/[docId]` — watermarked download generation (viewer session auth)
+- `/api/preview/[docId]` — admin document preview (Supabase Auth)
+- `/api/analytics/beacon` — client-side analytics ingestion (viewer session auth)
+- `/api/rooms/[roomId]/engagement.csv` — CSV export (Supabase Auth)
+- `/api/rooms/[roomId]/folders` — folder listing for FolderPicker (Supabase Auth)
+- `/api/ai/chat` — AI chat streaming (Supabase Auth)
+- `/api/ai/keys` — AI API key management (Supabase Auth)
+- `/api/ai/consent` — AI consent (Supabase Auth)
 
 ### Viewer Routes
 - `/v/[slug]` — viewer entry (email capture)
-- `/v/[slug]/auth` — magic link verification
+- `/v/[slug]/auth` — magic link verification callback
 - `/v/[slug]/nda` — NDA acceptance (if required)
 - `/v/[slug]/view` — secure document viewer
-- `/v/[slug]/download/[docId]` — watermarked download (if enabled)
 
 ---
 
@@ -643,16 +665,16 @@ group by vs.visitor_email, sl.room_id, sl.id, sl.slug, sl.name;
 ## 12. Milestones
 
 ### M1: Alpha Release (Current Target)
-- [ ] Magic link authentication for viewers
-- [ ] Room-level and folder-level sharing
-- [ ] Link constraints (expiration, max views, revoke)
-- [ ] Investor engagement dashboard with sortable table
-- [ ] CSV export of engagement data
-- [ ] Burned watermark downloads (when enabled)
-- [ ] NDA gate with acceptance logging
-- [ ] Immediate first-open notifications
-- [ ] Audit logging for sensitive actions
-- [ ] Basic privacy policy page
+- [x] Magic link authentication for viewers
+- [x] Room-level and folder-level sharing
+- [x] Link constraints (expiration, max views, revoke)
+- [x] Investor engagement dashboard with sortable table
+- [x] CSV export of engagement data
+- [x] Burned watermark downloads (when enabled)
+- [x] NDA gate with acceptance logging
+- [x] Immediate first-open notifications
+- [x] Audit logging for sensitive actions
+- [x] Basic privacy policy page
 
 ### M2: Beta Enhancements
 - [ ] Daily digest notifications
@@ -818,8 +840,10 @@ The following template is provided as a starting point. Founders should customiz
 
 ## 18. Appendix C: CSV Export Schema
 
+> Updated 2026-02-11 to match actual `toCsv()` output in `src/lib/engagement.ts`.
+
 ```csv
-email,domain,first_viewed,last_viewed,total_time_minutes,sessions,documents_viewed,pages_viewed,furthest_page,downloaded,nda_accepted,nda_accepted_at,link_slug,link_name
+email,domain,link_name,link_slug,first_view_at,last_view_at,sessions,total_time_seconds,docs_viewed,pages_viewed,downloads,nda_accepted
 ```
 
 **Field Definitions:**
@@ -828,18 +852,16 @@ email,domain,first_viewed,last_viewed,total_time_minutes,sessions,documents_view
 |-------|------|-------------|
 | email | string | Viewer's authenticated email |
 | domain | string | Domain extracted from email |
-| first_viewed | ISO 8601 | First access timestamp |
-| last_viewed | ISO 8601 | Most recent access timestamp |
-| total_time_minutes | float | Cumulative viewing time |
-| sessions | int | Number of separate sessions |
-| documents_viewed | string | Comma-separated document names |
-| pages_viewed | int | Total pages viewed |
-| furthest_page | int | Deepest page reached |
-| downloaded | boolean | Whether any download occurred |
-| nda_accepted | boolean | Whether NDA was accepted |
-| nda_accepted_at | ISO 8601 | NDA acceptance timestamp |
-| link_slug | string | Unique link identifier |
 | link_name | string | Friendly link name |
+| link_slug | string | Unique link slug identifier |
+| first_view_at | ISO 8601 | First access timestamp |
+| last_view_at | ISO 8601 | Most recent access timestamp |
+| sessions | int | Number of separate sessions |
+| total_time_seconds | int | Cumulative viewing time in seconds |
+| docs_viewed | int | Number of distinct documents viewed |
+| pages_viewed | int | Total pages viewed |
+| downloads | int | Number of downloads |
+| nda_accepted | boolean | Whether NDA was accepted |
 
 ---
 

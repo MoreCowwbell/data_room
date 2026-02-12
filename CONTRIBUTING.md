@@ -37,7 +37,7 @@ Use prefixed branch names:
 
 ### TypeScript
 - Type hints for all function signatures
-- Use `pathlib`-style paths where applicable
+- Use `path` module or Next.js built-in path handling where applicable
 - Use Supabase client from `@/lib/supabase/server` (server) or `@/lib/supabase/client` (client)
 - Prefer specific exceptions over generic error handling
 

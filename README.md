@@ -72,6 +72,14 @@ OpenVault lets you upload documents, generate secure sharing links, and track ev
 - Visitor authentication via email gating with cookie-based sessions
 - Viewer magic links for document access
 
+### AI Assistant
+- Built-in AI panel for room analysis (accessible from room page sidebar)
+- Multi-provider support: Anthropic (Claude), OpenAI (GPT), Google (Gemini)
+- Bring Your Own Key (BYOK) — users provide their own API keys, stored encrypted per-room
+- Room-aware tools: document text analysis, room structure overview, engagement metrics, completeness check against fundraising template
+- Consent flow required before first interaction
+- Token usage tracking per interaction
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -81,6 +89,7 @@ OpenVault lets you upload documents, generate secure sharing links, and track ev
 | UI | [React](https://react.dev) 19, [Tailwind CSS](https://tailwindcss.com) 4, [Radix UI](https://www.radix-ui.com), [shadcn/ui](https://ui.shadcn.com) |
 | Database | [Supabase](https://supabase.com) (PostgreSQL + Auth + Storage) |
 | PDF Rendering | [react-pdf](https://github.com/wojtekmaj/react-pdf) (client), [pdf-lib](https://pdf-lib.js.org) (server watermarking) |
+| AI | [Vercel AI SDK](https://sdk.vercel.ai) v6 (Anthropic, OpenAI, Google providers) |
 | Icons | [Lucide](https://lucide.dev) |
 | Email | [Resend](https://resend.com) |
 
@@ -130,6 +139,8 @@ Run the SQL migrations **in order** in your [Supabase SQL Editor](https://supaba
 6. `supabase/migrations/20260210000005_viewer_magic_link_nda.sql` — Viewer auth tokens, profile email column
 7. `supabase/migrations/20260210000006_team_roles_policies.sql` — Team invites, role-based policy refinements
 8. `supabase/migrations/20260210000007_fix_rls_recursion.sql` — SECURITY DEFINER helpers to fix RLS circular dependencies
+9. `supabase/migrations/20260210000008_ai_agent_panel.sql` — AI tables (API keys, consent, usage logs, document text cache)
+10. `supabase/migrations/20260211000009_link_folder_permissions.sql` — Folder-level permissions on shared links (allowed_folders JSONB)
 
 ## Running Locally
 
@@ -156,37 +167,59 @@ data_room/
 │   ├── PRD.md                      # Product Requirements Document
 │   ├── ALPHA.md                    # Alpha scope & acceptance criteria
 │   ├── TODOS.md                    # Open work items
-│   └── API_REFERENCE.md            # Route surface & data schemas
+│   ├── API_REFERENCE.md            # Route surface & data schemas
+│   ├── INVESTIGATION_REPORT.md     # Codebase audit findings
+│   └── HEALTH_CHECK_REPORT.md      # Full health check report
 ├── src/
 │   ├── app/
 │   │   ├── dashboard/              # Admin dashboard & room management
-│   │   │   ├── rooms/[roomId]/     # Room detail, engagement analytics
+│   │   │   ├── rooms/[roomId]/     # Room detail, engagement, NDA, actions
 │   │   │   └── team-invite/        # Team invite acceptance
 │   │   ├── v/[slug]/               # Visitor-facing routes
+│   │   │   ├── auth/               # Magic link verification
 │   │   │   ├── view/               # Secure PDF viewer
 │   │   │   └── nda/                # NDA acceptance page
 │   │   ├── api/
+│   │   │   ├── ai/                 # AI chat, keys, consent
 │   │   │   ├── stream/[docId]/     # Protected PDF streaming
 │   │   │   ├── download/[docId]/   # Watermarked PDF download
-│   │   │   └── analytics/beacon/   # Page view beacon endpoint
+│   │   │   ├── preview/[docId]/    # Admin document preview
+│   │   │   ├── analytics/beacon/   # Page view beacon endpoint
+│   │   │   └── rooms/[roomId]/     # Engagement CSV, folder listing
 │   │   ├── auth/                   # Auth callback handlers
-│   │   └── login/                  # Magic link login
+│   │   ├── login/                  # Magic link login
+│   │   └── privacy/                # Privacy policy page
 │   ├── components/
 │   │   ├── ui/                     # shadcn/ui primitives
+│   │   ├── AiPanel.tsx             # AI assistant sidebar (chat + settings)
 │   │   ├── SecureDocumentViewer.tsx # Canvas PDF viewer + watermarking
 │   │   ├── CreateLinkDialog.tsx    # Link generation with full options
+│   │   ├── FolderPicker.tsx        # Folder selection for link permissions
 │   │   ├── NdaTemplateForm.tsx     # Per-room NDA editor
 │   │   ├── TeamManager.tsx         # Team member & invite management
 │   │   ├── LinkManager.tsx         # Active/revoked/expired links
+│   │   ├── TrashBin.tsx            # Soft-delete restore UI
+│   │   ├── CookieConsent.tsx       # Cookie consent banner
+│   │   ├── DocumentPreviewDialog.tsx # Document preview modal
+│   │   ├── DocumentActions.tsx     # Document rename/delete/move
+│   │   ├── FolderActions.tsx       # Folder rename/delete
+│   │   ├── DeleteVaultDialog.tsx   # Vault deletion confirmation
 │   │   └── UploadButton.tsx        # PDF upload widget
 │   └── lib/
 │       ├── supabase/               # Client, server, middleware setup
+│       ├── ai/                     # AI provider, keys, system prompt, tools
 │       ├── link-access.ts          # Link availability & session validation
-│       ├── engagement.ts           # Analytics aggregation
+│       ├── engagement.ts           # Analytics aggregation + CSV export
 │       ├── audit.ts                # Audit event logging
-│       └── nda.ts                  # NDA template & acceptance logic
+│       ├── nda.ts                  # NDA template & acceptance logic
+│       ├── viewer-auth.ts          # Viewer magic link token lifecycle
+│       ├── room-access.ts          # Role-based room access control
+│       ├── notifications.ts        # First-open email notifications
+│       ├── rate-limit.ts           # In-memory rate limiter
+│       ├── email.ts                # Resend transactional email
+│       └── env.ts                  # Environment variable validation
 ├── supabase/
-│   └── migrations/                 # SQL migrations
+│   └── migrations/                 # 10 SQL migrations
 ├── public/
 ├── CONTRIBUTING.md                 # Contributor guidelines
 └── package.json
@@ -201,7 +234,9 @@ Detailed documentation lives in the [`docs/`](docs/) directory:
 | [PRD.md](docs/PRD.md) | Product Requirements Document (v2.0) |
 | [ALPHA.md](docs/ALPHA.md) | Alpha scope, acceptance criteria, and locked decisions |
 | [TODOS.md](docs/TODOS.md) | Current status and open work items |
-| [API_REFERENCE.md](docs/API_REFERENCE.md) | Route surface and data schemas |
+| [API_REFERENCE.md](docs/API_REFERENCE.md) | Route surface, data schemas, and auth flows |
+| [INVESTIGATION_REPORT.md](docs/INVESTIGATION_REPORT.md) | Codebase audit findings and remediation status |
+| [HEALTH_CHECK_REPORT.md](docs/HEALTH_CHECK_REPORT.md) | Full project health check (architecture, features, issues, deployment) |
 
 ## Contributing
 
