@@ -14,7 +14,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { FolderPicker } from '@/components/FolderPicker'
-import { FolderOpen } from 'lucide-react'
+import { FolderOpen, Copy, Check } from 'lucide-react'
 
 type LinkItem = {
     id: string
@@ -40,6 +40,7 @@ export function LinkManager({ roomId, links }: LinkManagerProps) {
     const [editingLink, setEditingLink] = useState<LinkItem | null>(null)
     const [editFolders, setEditFolders] = useState<string[]>([])
     const [editSaving, setEditSaving] = useState(false)
+    const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
 
     function onToggle(linkId: string, nextState: boolean) {
         setError(null)
@@ -63,6 +64,13 @@ export function LinkManager({ roomId, links }: LinkManagerProps) {
                 setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete link')
             }
         })
+    }
+
+    function copyLink(slug: string) {
+        const url = `${window.location.origin}/v/${slug}`
+        navigator.clipboard.writeText(url)
+        setCopiedSlug(slug)
+        setTimeout(() => setCopiedSlug(null), 2000)
     }
 
     function openEditAccess(link: LinkItem) {
@@ -103,6 +111,19 @@ export function LinkManager({ roomId, links }: LinkManagerProps) {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => copyLink(link.slug)}
+                                    >
+                                        {copiedSlug === link.slug ? (
+                                            <Check className="w-3.5 h-3.5 mr-1.5" />
+                                        ) : (
+                                            <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                        )}
+                                        {copiedSlug === link.slug ? 'Copied!' : 'Copy Link'}
+                                    </Button>
                                     {link.linkType === 'room' && (
                                         <Button
                                             type="button"
