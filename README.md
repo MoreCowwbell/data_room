@@ -141,6 +141,7 @@ Run the SQL migrations **in order** in your [Supabase SQL Editor](https://supaba
 8. `supabase/migrations/20260210000007_fix_rls_recursion.sql` — SECURITY DEFINER helpers to fix RLS circular dependencies
 9. `supabase/migrations/20260210000008_ai_agent_panel.sql` — AI tables (API keys, consent, usage logs, document text cache)
 10. `supabase/migrations/20260211000009_link_folder_permissions.sql` — Folder-level permissions on shared links (allowed_folders JSONB)
+11. `supabase/migrations/20260211000010_hardening.sql` — RLS update policy for beacon, file_size column, scoped storage upload policy
 
 ## Running Locally
 

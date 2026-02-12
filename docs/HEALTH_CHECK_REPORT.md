@@ -325,27 +325,27 @@ RootLayout (layout.tsx)
 
 | # | Issue | Location | Impact | Fix |
 |---|-------|----------|--------|-----|
-| S6 | Viewer session token stored in plaintext in `link_access_logs` | `src/lib/viewer-auth.ts:93-97` | Session hijacking if DB compromised | Store SHA-256 hash; compare hashes during validation |
+| S6 | ~~Viewer session token stored in plaintext~~ **FIXED** | `src/lib/viewer-auth.ts` | ~~Session hijacking if DB compromised~~ | Fixed: SHA-256 hash stored; cookie holds raw token; all queries/writes use hash |
 | S7 | In-memory rate limiter resets on every deploy/cold start | `src/lib/rate-limit.ts:1-40` | Zero protection in serverless production | Replace with Vercel KV / Upstash Redis |
-| S8 | `link_access_logs` missing UPDATE RLS policy | Migration `20260210000004` | Beacon `last_active_at` updates silently fail | Add UPDATE policy for anon/authenticated on `last_active_at` |
-| S9 | CSP allows `unsafe-inline` + `unsafe-eval` for scripts | `next.config.ts:33` | Defeats XSS protection provided by CSP | Use nonce-based approach; `wasm-unsafe-eval` for pdf.js |
-| S10 | No `file_size` column tracking on document upload | `src/app/dashboard/rooms/[roomId]/actions.ts` | AI tools reference `file_size` but it always returns null | Add `file_size bigint` column to `documents` table |
+| S8 | ~~`link_access_logs` missing UPDATE RLS policy~~ **FIXED** | Migration `20260211000010` | ~~Beacon updates silently fail~~ | Fixed: UPDATE policy added in migration 10 |
+| S9 | ~~CSP allows `unsafe-eval`~~ **FIXED** | `next.config.ts` | ~~Defeats XSS protection~~ | Fixed: replaced with `wasm-unsafe-eval`; added `worker-src` directive |
+| S10 | ~~No `file_size` column~~ **FIXED** | Migration `20260211000010`, `actions.ts`, `UploadButton.tsx` | ~~AI tools return null~~ | Fixed: column added, populated on upload |
 | S11 | ~~HTML injection in magic link email template~~ **FIXED** (with S5) | `src/app/v/[slug]/actions.ts` | ~~XSS via crafted viewer email~~ | Fixed: `escapeHtml()` applied to authUrl in email template |
-| S12 | Download endpoint does not enforce max views | `src/app/api/download/[docId]/route.ts` | Downloads possible after max views reached | Pass `{ enforceMaxViews: true }` to `evaluateLinkAvailability()` |
+| S12 | ~~Download endpoint does not enforce max views~~ **FALSE POSITIVE** | `src/app/api/download/[docId]/route.ts:40` | Already calls `evaluateLinkAvailability(link, { enforceMaxViews: true })` | No fix needed |
 
 ### WARNING -- Should Address
 
 | # | Issue | Location | Notes |
 |---|-------|----------|-------|
-| S13 | No file size limit on upload | Upload flow | No `MAX_FILE_SIZE` check; unlimited upload possible |
+| S13 | ~~No file size limit on upload~~ **FIXED** | `UploadButton.tsx`, `actions.ts` | ~~Unlimited upload possible~~ | Fixed: 50MB limit enforced client-side and server-side |
 | S14 | Vault deletion has race conditions (sequential deletes, no transaction) | Room delete action | Could leave orphaned data on partial failure |
 | S15 | Engagement data fetched without pagination | `src/lib/engagement.ts` | N+1 queries; loads all rows into memory; degrades at scale |
-| S16 | NDA template body stored/rendered without sanitization | NDA flow | Could contain malicious scripts if rendered as HTML |
-| S17 | Storage upload policy allows any authenticated user | Storage policies | Not scoped to room ownership; any user can upload to `documents` bucket |
+| S16 | ~~NDA template body rendered without sanitization~~ **FALSE POSITIVE** | NDA flow | React JSX auto-escapes string content; `{template.body}` is safe |
+| S17 | ~~Storage upload policy allows any authenticated user~~ **FIXED** | Migration `20260211000010` | ~~Not scoped to room ownership~~ | Fixed: upload policy now checks `data_rooms.owner_id` matches path |
 | S18 | PDF text extraction uses naive regex on binary | `src/lib/ai/tools.ts:241-277` | Fails for compressed streams, CIDFonts, encrypted PDFs |
 | S19 | `viewer_sessions` table created but never used | Migration 000004 | Code uses `link_access_logs` instead; dead table |
 | S20 | `document_analytics` table partially superseded by `page_views` | Migration 000004 | Legacy table; beacon writes to both in some paths |
-| S21 | `file_size` referenced in AI tools but column doesn't exist | `src/lib/ai/tools.ts:28` | Always returns null/undefined |
+| S21 | ~~`file_size` referenced in AI tools but column doesn't exist~~ **FIXED** (with S10) | `src/lib/ai/tools.ts:28` | ~~Always returns null~~ | Fixed: column and upload recording added |
 
 ### INFO -- Good to Know
 
@@ -362,12 +362,12 @@ RootLayout (layout.tsx)
 
 ### Summary by Severity
 
-| Severity | Count | Key Themes |
-|----------|-------|------------|
-| CRITICAL | 5 | Fake encryption, broken middleware, missing auth check, open redirect, HTML injection |
-| HIGH | 7 | Plaintext tokens, ephemeral rate limiter, missing RLS policy, weak CSP, max views bypass |
-| WARNING | 9 | Upload limits, race conditions, pagination, dead tables, storage policies |
-| INFO | 8 | Performance, monitoring, accessibility, CSRF, cookie settings |
+| Severity | Original | Fixed | Remaining | Key Remaining Themes |
+|----------|----------|-------|-----------|---------------------|
+| CRITICAL | 5 | 4 (1 false positive) | **0** | -- |
+| HIGH | 7 | 6 (1 false positive) | **1** | Ephemeral rate limiter (S7, needs Redis) |
+| WARNING | 9 | 4 (1 false positive) | **4** | Race conditions (S14), pagination (S15), PDF extraction (S18), dead tables (S19/S20) |
+| INFO | 8 | 0 | **8** | Performance, monitoring, accessibility, CSRF, cookie settings |
 
 ---
 
