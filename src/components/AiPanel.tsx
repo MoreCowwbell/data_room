@@ -11,7 +11,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Bot, Send, Settings, Trash2, Key, Shield, ExternalLink } from 'lucide-react'
+import { Bot, Send, Settings, Trash2, Key, Shield, ExternalLink, User } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 type AiProvider = 'anthropic' | 'openai' | 'google'
 
@@ -272,35 +274,69 @@ export function AiPanel({ roomId }: { roomId: string }) {
                                     {messages.map((m) => {
                                         const text = getMessageText(m)
                                         if (!text) return null
+                                        const isUser = m.role === 'user'
                                         return (
                                             <div
                                                 key={m.id}
-                                                className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                                className={`flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
                                             >
+                                                {!isUser && (
+                                                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                                                        <Bot className="w-3.5 h-3.5 text-primary" />
+                                                    </div>
+                                                )}
                                                 <div
                                                     className={`rounded-lg px-3 py-2 max-w-[85%] text-sm ${
-                                                        m.role === 'user'
+                                                        isUser
                                                             ? 'bg-primary text-primary-foreground'
                                                             : 'bg-muted'
                                                     }`}
                                                 >
-                                                    <div className="whitespace-pre-wrap">{text}</div>
+                                                    {isUser ? (
+                                                        <div className="whitespace-pre-wrap">{text}</div>
+                                                    ) : (
+                                                        <div className="ai-prose">
+                                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                {text}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                    )}
                                                 </div>
+                                                {isUser && (
+                                                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center mt-0.5">
+                                                        <User className="w-3.5 h-3.5 text-primary-foreground" />
+                                                    </div>
+                                                )}
                                             </div>
                                         )
                                     })}
 
                                     {isLoading && (
-                                        <div className="flex justify-start">
+                                        <div className="flex gap-2 justify-start">
+                                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                                                <Bot className="w-3.5 h-3.5 text-primary animate-pulse" />
+                                            </div>
                                             <div className="bg-muted rounded-lg px-3 py-2 text-sm">
-                                                <span className="animate-pulse">Thinking...</span>
+                                                <span className="flex items-center gap-1.5 text-muted-foreground">
+                                                    <span className="inline-flex gap-0.5">
+                                                        <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                                        <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                                        <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce" />
+                                                    </span>
+                                                    Thinking
+                                                </span>
                                             </div>
                                         </div>
                                     )}
 
                                     {error && (
-                                        <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-                                            {error.message || 'An error occurred. Check your API key and try again.'}
+                                        <div className="flex gap-2 justify-start">
+                                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-destructive/10 flex items-center justify-center mt-0.5">
+                                                <Bot className="w-3.5 h-3.5 text-destructive" />
+                                            </div>
+                                            <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 max-w-[85%]">
+                                                {error.message || 'An error occurred. Check your API key and try again.'}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
