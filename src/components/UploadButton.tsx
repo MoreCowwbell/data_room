@@ -37,7 +37,7 @@ export function UploadButton({ roomId, folderId }: { roomId: string, folderId: s
                 throw uploadError
             }
 
-            await recordUpload(roomId, folderId, filePath, file.name, file.type)
+            await recordUpload(roomId, folderId, filePath, file.name, file.type, file.size)
         } catch (error) {
             console.error('Upload failed', error)
             alert('Upload failed')

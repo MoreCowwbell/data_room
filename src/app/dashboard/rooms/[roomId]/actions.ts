@@ -10,7 +10,7 @@ async function assertRoomOwnership(roomId: string) {
     return supabase
 }
 
-export async function recordUpload(roomId: string, folderId: string | null, path: string, filename: string, mimeType: string) {
+export async function recordUpload(roomId: string, folderId: string | null, path: string, filename: string, mimeType: string, fileSize: number) {
     const supabase = await assertRoomOwnership(roomId)
 
     const isPdf = mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')
@@ -24,6 +24,7 @@ export async function recordUpload(roomId: string, folderId: string | null, path
         storage_path: path,
         filename: filename,
         mime_type: mimeType,
+        file_size: fileSize,
         status: 'ready' // We assume it's ready for now, or 'processing' if we had a worker
     })
 
