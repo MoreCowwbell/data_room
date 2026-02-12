@@ -288,11 +288,13 @@ export async function getValidVisitorSession(
     linkId: string,
     sessionToken: string
 ): Promise<{ visitor_email: string | null; ip_address: string | null } | null> {
+    const { hashSessionToken } = await import('@/lib/viewer-auth')
+    const tokenHash = hashSessionToken(sessionToken)
     const { data, error } = await supabase
         .from('link_access_logs')
         .select('visitor_email, ip_address, started_at')
         .eq('link_id', linkId)
-        .eq('visitor_session_token', sessionToken)
+        .eq('visitor_session_token', tokenHash)
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle()

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { fetchLinkById, getAccessibleDocumentsForLink, getValidVisitorSession, getVisitorSessionCookieName } from '@/lib/link-access'
+import { hashSessionToken } from '@/lib/viewer-auth'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -36,10 +37,12 @@ export async function POST(req: NextRequest) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 
+    const tokenHash = hashSessionToken(sessionToken)
+
     await supabase.from('page_views').insert({
         link_id: link.id,
         document_id: requestedDocument.id,
-        visitor_session_token: sessionToken,
+        visitor_session_token: tokenHash,
         page_number: pageNumber,
         duration_seconds: durationSeconds,
         viewed_at: new Date().toISOString()
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
         .from('link_access_logs')
         .update({ last_active_at: new Date().toISOString() })
         .eq('link_id', link.id)
-        .eq('visitor_session_token', sessionToken)
+        .eq('visitor_session_token', tokenHash)
 
     return new NextResponse('OK', { status: 200 })
 }

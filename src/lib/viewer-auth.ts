@@ -78,6 +78,10 @@ export async function consumeViewerAuthToken(
     return true
 }
 
+export function hashSessionToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex')
+}
+
 export async function createViewerSession(
     supabase: SupabaseClient,
     link: SharedLinkRecord,
@@ -91,10 +95,11 @@ export async function createViewerSession(
         .eq('visitor_email', viewerEmail)
 
     const sessionToken = generateSessionToken()
+    const tokenHash = hashSessionToken(sessionToken)
     const { error: logError } = await supabase.from('link_access_logs').insert({
         link_id: link.id,
         visitor_email: viewerEmail,
-        visitor_session_token: sessionToken,
+        visitor_session_token: tokenHash,
         user_agent: metadata.userAgent,
         ip_address: metadata.ipAddress,
     })

@@ -8,6 +8,7 @@ import {
     getViewerIdentityCookieName,
     getVisitorSessionCookieName,
 } from '@/lib/link-access'
+import { hashSessionToken } from '@/lib/viewer-auth'
 import { writeAuditEvent } from '@/lib/audit'
 import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib'
 import { cookies } from 'next/headers'
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ docI
         link_id: link.id,
         document_id: document.id,
         viewer_email: viewerEmail,
-        visitor_session_token: sessionToken,
+        visitor_session_token: hashSessionToken(sessionToken),
         ip_address: validSession.ip_address,
         user_agent: req.headers.get('user-agent'),
         downloaded_at: new Date().toISOString(),
