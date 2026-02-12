@@ -10,12 +10,18 @@ async function assertRoomOwnership(roomId: string) {
     return supabase
 }
 
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50MB
+
 export async function recordUpload(roomId: string, folderId: string | null, path: string, filename: string, mimeType: string, fileSize: number) {
     const supabase = await assertRoomOwnership(roomId)
 
     const isPdf = mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')
     if (!isPdf) {
         throw new Error('Only PDF uploads are supported')
+    }
+
+    if (fileSize > MAX_FILE_SIZE_BYTES) {
+        throw new Error('File size exceeds the 50MB limit')
     }
 
     const { error } = await supabase.from('documents').insert({

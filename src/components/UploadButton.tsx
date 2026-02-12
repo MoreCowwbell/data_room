@@ -13,10 +13,19 @@ export function UploadButton({ roomId, folderId }: { roomId: string, folderId: s
         if (!e.target.files || e.target.files.length === 0) return
 
         const file = e.target.files[0]
+        const MAX_FILE_SIZE_MB = 50
+        const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
         const isPdfMime = file.type === 'application/pdf'
         const isPdfExtension = file.name.toLowerCase().endsWith('.pdf')
         if (!isPdfMime && !isPdfExtension) {
             alert('Alpha currently supports PDF uploads only.')
+            e.target.value = ''
+            return
+        }
+
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+            alert(`File size exceeds the ${MAX_FILE_SIZE_MB}MB limit.`)
             e.target.value = ''
             return
         }
