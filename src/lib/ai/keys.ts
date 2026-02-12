@@ -1,16 +1,41 @@
 import { createClient } from '@/lib/supabase/server'
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto'
 import type { AiProvider } from './provider'
 
-/**
- * Simple key obfuscation using base64 encoding.
- * In production with Cloudflare/AWS, replace with Supabase Vault or AWS KMS.
- */
-function encryptKey(apiKey: string): string {
-    return Buffer.from(apiKey).toString('base64')
+const ALGORITHM = 'aes-256-gcm'
+const IV_LENGTH = 12
+const AUTH_TAG_LENGTH = 16
+
+function getEncryptionKey(): Buffer {
+    const secret = process.env.AI_KEY_ENCRYPTION_SECRET
+    if (!secret) {
+        throw new Error(
+            'AI_KEY_ENCRYPTION_SECRET is not set. Cannot encrypt/decrypt API keys.'
+        )
+    }
+    // Derive a 256-bit key from the secret using SHA-256
+    return createHash('sha256').update(secret).digest()
 }
 
-function decryptKey(encrypted: string): string {
-    return Buffer.from(encrypted, 'base64').toString('utf-8')
+function encryptKey(apiKey: string): string {
+    const key = getEncryptionKey()
+    const iv = randomBytes(IV_LENGTH)
+    const cipher = createCipheriv(ALGORITHM, key, iv)
+    const encrypted = Buffer.concat([cipher.update(apiKey, 'utf8'), cipher.final()])
+    const authTag = cipher.getAuthTag()
+    // Format: base64(iv + authTag + ciphertext)
+    return Buffer.concat([iv, authTag, encrypted]).toString('base64')
+}
+
+function decryptKey(encryptedB64: string): string {
+    const key = getEncryptionKey()
+    const data = Buffer.from(encryptedB64, 'base64')
+    const iv = data.subarray(0, IV_LENGTH)
+    const authTag = data.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH)
+    const ciphertext = data.subarray(IV_LENGTH + AUTH_TAG_LENGTH)
+    const decipher = createDecipheriv(ALGORITHM, key, iv)
+    decipher.setAuthTag(authTag)
+    return decipher.update(ciphertext) + decipher.final('utf8')
 }
 
 function getKeyHint(apiKey: string): string {
