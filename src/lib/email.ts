@@ -35,6 +35,13 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
     if (!response.ok) {
         const details = await response.text()
         console.error('Resend error:', details)
+
+        if (process.env.NODE_ENV !== 'production' && response.status === 403) {
+            console.warn('[email:dev] Domain not verified — email to', input.to, 'skipped.')
+            console.warn('[email:dev] Check the server console for the magic link URL.')
+            return
+        }
+
         throw new Error('Failed to send email')
     }
 }

@@ -36,6 +36,7 @@
 ## Low — Polish & Post-Alpha Prep
 
 - [ ] **Cloudflare Tunnel for external alpha testing** — PRD Section 11 and Execution Plan Section 8: "Use Cloudflare Tunnel for external testing." Not configured. Need to add tunnel URL to Supabase Auth redirect allowlist.
+- [ ] **Verify Resend sending domain during Cloudflare migration** — Currently using `onboarding@resend.dev` (sandbox), which only allows sending to the account owner's email. When setting up the Cloudflare domain, verify it in Resend (resend.com/domains), add DNS records (DKIM/SPF/CNAME), and update `RESEND_FROM_EMAIL` to `noreply@yourdomain.com`. Required for magic links, team invites, and notifications to work for external users.
 - [ ] **visitor_engagement SQL view** — PRD Section 9 defines a `visitor_engagement` database view for engagement aggregation. Current implementation computes this in application code (`src/lib/engagement.ts`). Consider creating the DB view for consistency and query performance.
 - [ ] **Dashboard TTFB performance** — PRD Section 8.2: "<1.5s at p50". Not benchmarked. Dashboard queries may need indexing as data grows.
 - [ ] **Viewer first-page render performance** — PRD Section 8.2: "<2.5s for PDFs <10MB at p50". Not benchmarked.

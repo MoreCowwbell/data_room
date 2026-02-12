@@ -49,6 +49,10 @@ export async function requestViewerMagicLink(slug: string, formData: FormData) {
     const origin = await getRequestOrigin()
     const authUrl = `${origin}/v/${slug}/auth?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`
 
+    if (process.env.NODE_ENV !== 'production') {
+        console.log('[dev] Magic link for', email, ':', authUrl)
+    }
+
     await sendEmail({
         to: email,
         subject: 'Your secure OpenVault access link',
