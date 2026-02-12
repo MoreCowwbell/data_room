@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/utils'
 import type { SharedLinkRecord } from '@/lib/link-access'
 
 async function getRoomRecipientEmails(supabase: SupabaseClient, roomId: string): Promise<string[]> {
@@ -45,16 +46,20 @@ export async function notifyFirstOpen(
         return
     }
 
-    const linkUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/v/${input.link.slug}`
+    const linkUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/v/${encodeURIComponent(input.link.slug)}`
     const subject = `First open: ${input.viewerEmail} viewed ${input.link.name || input.link.slug}`
+    const safeEmail = escapeHtml(input.viewerEmail)
+    const safeLinkName = escapeHtml(input.link.name || input.link.slug)
+    const safeTime = escapeHtml(input.openedAtIso)
+    const safeLinkUrl = escapeHtml(linkUrl)
     const html = `
         <p>A shared link was opened for the first time.</p>
         <ul>
-            <li><strong>Viewer:</strong> ${input.viewerEmail}</li>
-            <li><strong>Link:</strong> ${input.link.name || input.link.slug}</li>
-            <li><strong>Opened at:</strong> ${input.openedAtIso}</li>
+            <li><strong>Viewer:</strong> ${safeEmail}</li>
+            <li><strong>Link:</strong> ${safeLinkName}</li>
+            <li><strong>Opened at:</strong> ${safeTime}</li>
         </ul>
-        <p><a href="${linkUrl}">Open shared link</a></p>
+        <p><a href="${safeLinkUrl}">Open shared link</a></p>
     `
 
     for (const recipient of recipients) {

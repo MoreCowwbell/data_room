@@ -16,7 +16,7 @@ import { getRequestClientMetadata, getRequestOrigin } from '@/lib/request-contex
 import { issueViewerAuthToken } from '@/lib/viewer-auth'
 import { writeAuditEvent } from '@/lib/audit'
 import { isRateLimited } from '@/lib/rate-limit'
-import { isValidEmail } from '@/lib/utils'
+import { escapeHtml, isValidEmail } from '@/lib/utils'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -56,7 +56,7 @@ export async function requestViewerMagicLink(slug: string, formData: FormData) {
     await sendEmail({
         to: email,
         subject: 'Your secure OpenVault access link',
-        html: `<p>Use the secure link below to access your shared documents.</p><p><a href="${authUrl}">${authUrl}</a></p><p>This link expires in 15 minutes.</p>`,
+        html: `<p>Use the secure link below to access your shared documents.</p><p><a href="${escapeHtml(authUrl)}">${escapeHtml(authUrl)}</a></p><p>This link expires in 15 minutes.</p>`,
         text: `Use this secure link to access your shared documents:\n${authUrl}\n\nThis link expires in 15 minutes.`,
     })
 
