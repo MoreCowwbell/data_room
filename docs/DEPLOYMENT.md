@@ -7,7 +7,7 @@
 ## Prerequisites
 
 - [Vercel](https://vercel.com) account (Pro plan: $20/month)
-- [Supabase](https://supabase.com) project with all 10 migrations applied
+- [Supabase](https://supabase.com) project with all 11 migrations applied
 - [Resend](https://resend.com) account with verified sending domain
 - GitHub repository connected to Vercel
 - Custom domain (optional but recommended)
@@ -18,15 +18,9 @@
 
 Before deploying, address these blockers:
 
-### 1a. Wire Next.js Middleware
+### ~~1a. Wire Next.js Middleware~~ — Not Needed
 
-Create `src/middleware.ts`:
-
-```typescript
-export { proxy as middleware, config } from './proxy'
-```
-
-Without this, Supabase auth sessions never refresh and will expire unexpectedly.
+> **Resolved:** Next.js 16 renamed `middleware.ts` to `proxy.ts`. The existing `src/proxy.ts` is automatically detected and used as middleware by the framework. No additional file is needed.
 
 ### 1b. Refactor File-Serving Routes
 
@@ -36,9 +30,9 @@ Vercel serverless functions have a **4.5MB response body limit**. The current ro
 - `/api/preview/[docId]` — refactor to return a Supabase signed URL redirect
 - `/api/download/[docId]` — keep as-is (watermarking requires server-side processing). Add file size check and return error for files exceeding the limit.
 
-### 1c. Fix Critical Security Issues
+### ~~1c. Fix Critical Security Issues~~ — Done
 
-See `docs/HEALTH_CHECK_REPORT.md` Section 4 for details on issues S1-S5.
+> **Resolved:** All 5 critical issues (S1-S5) and most high-severity issues (S6, S8-S13, S17) have been fixed. See `docs/HEALTH_CHECK_REPORT.md` Section 4 for details. The only remaining pre-deployment blocker is the file-serving route refactor (1b above).
 
 ---
 

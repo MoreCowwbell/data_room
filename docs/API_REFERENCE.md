@@ -36,9 +36,9 @@
 | `/api/stream/[docId]` | GET | Viewer session cookie | Protected PDF streaming — validates session + link scope via `link_allows_document()` |
 | `/api/download/[docId]` | GET | Viewer session cookie | Watermarked PDF download — burns viewer email, IP, timestamp into every page via `pdf-lib` |
 | `/api/preview/[docId]` | GET | Supabase Auth | Admin document preview/download — verifies room ownership via `getUserRoomAccess()` |
-| `/api/analytics/beacon` | POST | Viewer session cookie | Page view analytics ingestion — inserts `page_views` + updates `link_access_logs.last_active_at` |
-| `/api/rooms/[roomId]/engagement.csv` | GET | Supabase Auth | CSV export of engagement data — verifies room access |
-| `/api/rooms/[roomId]/folders` | GET | Supabase Auth | Room folder listing (used by FolderPicker component) |
+| `/api/analytics/beacon` | POST | Viewer session cookie | Page view analytics ingestion — inserts `page_views` + updates `link_access_logs.last_active_at`. Session tokens hashed before storage. |
+| `/api/rooms/[roomId]/engagement.csv` | GET | Supabase Auth | CSV export of engagement data — verifies room access via `getUserRoomAccess()` |
+| `/api/rooms/[roomId]/folders` | GET | Supabase Auth | Room folder listing — verifies room access via `getUserRoomAccess()` |
 | `/api/ai/chat` | POST | Supabase Auth | AI chat streaming — multi-provider (Anthropic, OpenAI, Google) with room-scoped tools |
 | `/api/ai/keys` | GET/POST/DELETE | Supabase Auth | AI API key management — per-user, per-room, per-provider CRUD |
 | `/api/ai/consent` | GET/POST | Supabase Auth | AI feature consent — must consent before first interaction |
@@ -78,8 +78,9 @@ Most CRUD operations use Next.js Server Actions (`'use server'`) instead of REST
 3. Custom token created: `issueViewerAuthToken()` → SHA-256 hashed, 15-min TTL, single-use
 4. Magic link email sent via Resend
 5. Visitor clicks link → `/v/[slug]/auth` → token consumed, session cookie set
-6. Session cookies: `visitor_session_${linkId}` + `visitor_identity_${linkId}`
+6. Session cookies: `visitor_session_${linkId}` (raw token) + `visitor_identity_${linkId}` (base64url email)
 7. **Session TTL: 4 hours** (validated via `link_access_logs.started_at` in `link-access.ts`)
+8. Session tokens are **SHA-256 hashed** before storage in `link_access_logs`, `page_views`, and `download_events`
 8. If NDA required → `/v/[slug]/nda` → accept → redirect to `/v/[slug]/view`
 9. If `require_email` is off: bypass steps 2-6, proceed directly
 

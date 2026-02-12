@@ -65,12 +65,15 @@ Build a secure, analytics-first Virtual Data Room for startup fundraising that c
 - Privacy policy page + cookie consent banner
 - Dark mode toggle
 - Environment validation at startup
+- Security hardening: AES-256-GCM key encryption, session token hashing, HTML-escaped emails, CSP tightened, scoped storage uploads, file size limits, authorization checks on all API routes
 
 ### Remaining for Alpha Exit
 - Zero automated tests (no test framework configured)
 - Error monitoring (Sentry) not set up
-- Production deployment (target: Vercel + Supabase Cloud)
+- Production deployment (target: Vercel + Supabase Cloud). See [DEPLOYMENT.md](DEPLOYMENT.md).
 - Email deliverability setup (SPF/DKIM/DMARC for production domain)
+- Refactor stream/preview routes to Supabase signed URLs (Vercel 4.5MB limit)
+- Replace in-memory rate limiter with Redis (S7)
 
 ### Deferred to Post-Alpha
 - Document versioning UI
@@ -237,11 +240,9 @@ Build a secure, analytics-first Virtual Data Room for startup fundraising that c
 | Sessions | Number of separate viewing sessions |
 | Documents viewed | List of documents accessed |
 | Pages viewed | Total pages viewed across all docs |
-| Furthest page | Deepest page reached (for drop-off analysis) |
-| Downloaded | Yes/No — did they download any file |
-| NDA accepted | Yes/No + timestamp if applicable |
+| Downloads | Count of files downloaded |
+| NDA accepted | Yes/No if applicable |
 | Link used | Which shared link they accessed |
-| Access group | Group assignment if applicable |
 
 **Engagement Signals**
 
@@ -253,10 +254,12 @@ Surface high-intent indicators:
 
 **CSV Export Format**
 
+> See Appendix C for the authoritative CSV schema matching the `toCsv()` output in `src/lib/engagement.ts`.
+
 ```
-email,domain,first_viewed,last_viewed,total_time_minutes,sessions,documents_viewed,pages_viewed,downloaded,nda_accepted,link_slug
-partner@sequoia.com,sequoia.com,2026-02-08T14:32:00Z,2026-02-10T09:15:00Z,12.5,3,"Pitch Deck, Financials Q4",28,No,Yes,series-a-main
-analyst@a]6z.com,a]6z.com,2026-02-09T10:00:00Z,2026-02-09T10:45:00Z,8.2,1,"Pitch Deck",15,No,Yes,series-a-main
+email,domain,link_name,link_slug,first_view_at,last_view_at,sessions,total_time_seconds,docs_viewed,pages_viewed,downloads,nda_accepted
+partner@sequoia.com,sequoia.com,Series A Main,series-a-main,2026-02-08T14:32:00Z,2026-02-10T09:15:00Z,3,750,2,28,0,true
+analyst@a16z.com,a16z.com,Series A Main,series-a-main,2026-02-09T10:00:00Z,2026-02-09T10:45:00Z,1,492,1,15,0,true
 ```
 
 ### 7.7 Analytics (Detailed)
@@ -398,8 +401,10 @@ analyst@a]6z.com,a]6z.com,2026-02-09T10:00:00Z,2026-02-09T10:45:00Z,8.2,1,"Pitch
 > - `audit_events` includes `actor_type` column not shown below.
 > - AI tables added in migration 9: `ai_api_keys`, `ai_consent`, `ai_usage_logs`, `document_text_cache`.
 > - `shared_links` does not reference `access_group_id`; instead has `permissions jsonb`.
+> - Migration 10 (`20260211000009`) added `allowed_folders` JSONB for folder-level link permissions.
+> - Migration 11 (`20260211000010`) added `file_size bigint` to `documents`, UPDATE RLS on `link_access_logs`, and scoped storage upload policy.
 >
-> See `supabase/migrations/` for the authoritative schema.
+> See `supabase/migrations/` for the authoritative schema (11 migrations total).
 
 ### Core Tables
 

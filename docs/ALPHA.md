@@ -22,8 +22,11 @@ All features below are in scope for alpha release:
 - Immediate first-open email notifications (owner + admins)
 - Owner/Admin team model with invite flow
 - Audit logging for sensitive actions
+- AI assistant panel (multi-provider: Anthropic, OpenAI, Google — BYOK)
+- Folder-level permissions on room links (allowed_folders JSONB + FolderPicker UI)
 - Basic privacy policy page
 - Cookie consent for analytics
+- Dark mode toggle
 
 ---
 
@@ -81,11 +84,11 @@ All items must pass before alpha release:
 
 ## Deployment Path
 
-1. **Local development** -- Next.js + Supabase project
-2. **External testing** -- Cloudflare Tunnel for public URL
-3. **Auth config** -- Add tunnel URL to Supabase Auth redirect allowlist
-4. **Production** -- Vercel (frontend) + Supabase (backend) initially; Cloudflare + AWS post-alpha
+1. **Local development** -- Next.js 16 + Supabase project (`npm run dev`)
+2. **External testing** -- ngrok or Cloudflare Tunnel for public URL
+3. **Auth config** -- Add tunnel/production URL to Supabase Auth redirect allowlist
+4. **Production** -- Vercel (frontend) + Supabase Cloud (backend). See [DEPLOYMENT.md](DEPLOYMENT.md) for full guide.
 
 ---
 
-*Derived from PRD v2.0. See [PRD.md](PRD.md) for full requirements.*
+*Derived from PRD v2.0. See [PRD.md](PRD.md) for full requirements. Last updated: 2026-02-11.*
