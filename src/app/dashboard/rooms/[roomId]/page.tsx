@@ -137,9 +137,17 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
 
     const { data: sharedLinks } = await supabase
         .from('shared_links')
-        .select('id, slug, name, link_type, is_active, expires_at, max_views, view_count')
+        .select('id, slug, name, link_type, is_active, expires_at, max_views, view_count, permissions')
         .eq('room_id', roomId)
         .order('created_at', { ascending: false })
+
+    // Fetch all folder names for resolving allowed_folders IDs to names
+    const { data: allRoomFolders } = await supabase
+        .from('folders')
+        .select('id, name')
+        .eq('room_id', roomId)
+        .is('deleted_at', null)
+    const folderNameMap = new Map((allRoomFolders ?? []).map((f) => [f.id, f.name]))
 
     const [{ data: ownerProfile }, { data: members }, { data: invites }] = await Promise.all([
         supabase.from('profiles').select('email').eq('id', room.owner_id).maybeSingle(),
@@ -272,16 +280,22 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
             <div className="mt-8">
                 <LinkManager
                     roomId={roomId}
-                    links={(sharedLinks ?? []).map((link) => ({
-                        id: link.id,
-                        slug: link.slug,
-                        name: link.name,
-                        linkType: link.link_type,
-                        isActive: link.is_active,
-                        expiresAt: link.expires_at,
-                        maxViews: link.max_views,
-                        viewCount: link.view_count ?? 0,
-                    }))}
+                    links={(sharedLinks ?? []).map((link) => {
+                        const perms = link.permissions as { allowed_folders?: string[] } | null
+                        const allowedFolders = perms?.allowed_folders ?? []
+                        return {
+                            id: link.id,
+                            slug: link.slug,
+                            name: link.name,
+                            linkType: link.link_type,
+                            isActive: link.is_active,
+                            expiresAt: link.expires_at,
+                            maxViews: link.max_views,
+                            viewCount: link.view_count ?? 0,
+                            allowedFolders,
+                            folderNames: allowedFolders.map((fid) => folderNameMap.get(fid) ?? 'Unknown'),
+                        }
+                    })}
                 />
             </div>
 

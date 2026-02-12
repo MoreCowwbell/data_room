@@ -16,6 +16,7 @@ import { createLink } from '@/app/dashboard/rooms/[roomId]/link-actions'
 import { useState } from 'react'
 import { Share2, Copy, Check } from 'lucide-react'
 import { Checkbox } from "@/components/ui/checkbox"
+import { FolderPicker } from '@/components/FolderPicker'
 
 type LinkType = 'room' | 'folder' | 'document'
 
@@ -38,6 +39,7 @@ export function CreateLinkDialog({ roomId, linkType, targetId, targetLabel }: Cr
     const [loading, setLoading] = useState(false)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [copied, setCopied] = useState(false)
+    const [selectedFolders, setSelectedFolders] = useState<string[]>([])
     const scopeSuffix = `${linkType}-${targetId ?? 'room'}`
 
     async function handleCreate() {
@@ -46,6 +48,11 @@ export function CreateLinkDialog({ roomId, linkType, targetId, targetLabel }: Cr
         const parsedMaxViews = maxViews.trim() ? Number.parseInt(maxViews, 10) : null
         if (parsedMaxViews !== null && (!Number.isInteger(parsedMaxViews) || parsedMaxViews <= 0)) {
             setErrorMessage('Max views must be a positive whole number.')
+            return
+        }
+
+        if (linkType === 'room' && selectedFolders.length === 0) {
+            setErrorMessage('Select at least one folder to share.')
             return
         }
 
@@ -61,6 +68,7 @@ export function CreateLinkDialog({ roomId, linkType, targetId, targetLabel }: Cr
                 expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
                 maxViews: parsedMaxViews,
                 name: linkName || null,
+                allowedFolders: linkType === 'room' ? selectedFolders : undefined,
             })
             setGeneratedSlug(slug)
         } catch (error) {
@@ -90,6 +98,7 @@ export function CreateLinkDialog({ roomId, linkType, targetId, targetLabel }: Cr
                 setGeneratedSlug(null)
                 setErrorMessage(null)
                 setCopied(false)
+                setSelectedFolders([])
             }
         }}>
             <DialogTrigger asChild>
@@ -98,7 +107,7 @@ export function CreateLinkDialog({ roomId, linkType, targetId, targetLabel }: Cr
                     Share
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className={linkType === 'room' ? "sm:max-w-lg" : "sm:max-w-md"}>
                 <DialogHeader>
                     <DialogTitle>Share {scopeTitle}</DialogTitle>
                     <DialogDescription>
@@ -119,6 +128,16 @@ export function CreateLinkDialog({ roomId, linkType, targetId, targetLabel }: Cr
                                 maxLength={120}
                             />
                         </div>
+                        {linkType === 'room' && (
+                            <div className="grid gap-2">
+                                <Label>Select Folders to Share</Label>
+                                <FolderPicker
+                                    roomId={roomId}
+                                    selectedIds={selectedFolders}
+                                    onChange={setSelectedFolders}
+                                />
+                            </div>
+                        )}
                         <div className="flex items-center space-x-2">
                             <Checkbox id={`email-gate-${scopeSuffix}`} checked={requireEmail} onCheckedChange={(c) => setRequireEmail(!!c)} />
                             <Label htmlFor={`email-gate-${scopeSuffix}`}>Require Email to View</Label>

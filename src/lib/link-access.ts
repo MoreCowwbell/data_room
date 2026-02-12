@@ -17,6 +17,7 @@ export type SharedLinkRecord = {
     require_nda: boolean
     name: string | null
     settings: { require_email?: boolean } | null
+    permissions: { allowed_folders?: string[] } | null
 }
 
 export type AccessibleDocumentRecord = {
@@ -117,7 +118,7 @@ export async function fetchLinkBySlug(
 ): Promise<SharedLinkRecord | null> {
     const { data, error } = await supabase
         .from('shared_links')
-        .select('id, slug, room_id, folder_id, document_id, link_type, is_active, expires_at, max_views, view_count, allow_download, require_nda, name, settings')
+        .select('id, slug, room_id, folder_id, document_id, link_type, is_active, expires_at, max_views, view_count, allow_download, require_nda, name, settings, permissions')
         .eq('slug', slug)
         .maybeSingle()
 
@@ -134,7 +135,7 @@ export async function fetchLinkById(
 ): Promise<SharedLinkRecord | null> {
     const { data, error } = await supabase
         .from('shared_links')
-        .select('id, slug, room_id, folder_id, document_id, link_type, is_active, expires_at, max_views, view_count, allow_download, require_nda, name, settings')
+        .select('id, slug, room_id, folder_id, document_id, link_type, is_active, expires_at, max_views, view_count, allow_download, require_nda, name, settings, permissions')
         .eq('id', linkId)
         .maybeSingle()
 
@@ -238,6 +239,36 @@ export async function getAccessibleDocumentsForLink(
         return data as AccessibleDocumentRecord[]
     }
 
+    const allowedFolders = link.permissions?.allowed_folders
+    if (allowedFolders && allowedFolders.length > 0) {
+        // Collect all folder IDs in allowed subtrees
+        const allAllowedIds = new Set<string>()
+        for (const folderId of allowedFolders) {
+            const subtreeIds = await getFolderSubtreeIds(supabase, link.room_id, folderId)
+            for (const id of subtreeIds) {
+                allAllowedIds.add(id)
+            }
+        }
+
+        if (allAllowedIds.size === 0) {
+            return []
+        }
+
+        const { data, error } = await supabase
+            .from('documents')
+            .select('id, room_id, folder_id, filename, mime_type, storage_path, created_at')
+            .eq('room_id', link.room_id)
+            .in('folder_id', Array.from(allAllowedIds))
+            .is('deleted_at', null)
+            .order('created_at', { ascending: true })
+
+        if (error || !data) {
+            return []
+        }
+        return data as AccessibleDocumentRecord[]
+    }
+
+    // No folder restriction → full room access
     const { data, error } = await supabase
         .from('documents')
         .select('id, room_id, folder_id, filename, mime_type, storage_path, created_at')

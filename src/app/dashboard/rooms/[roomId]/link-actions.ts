@@ -17,6 +17,7 @@ type CreateLinkInput = {
     expiresAt?: string | null
     maxViews?: number | null
     name?: string | null
+    allowedFolders?: string[]
 }
 
 function generateSlug() {
@@ -34,6 +35,7 @@ export async function createLink(input: CreateLinkInput) {
         expiresAt = null,
         maxViews = null,
         name = null,
+        allowedFolders,
     } = input
 
     if (!['room', 'folder', 'document'].includes(linkType)) {
@@ -95,6 +97,23 @@ export async function createLink(input: CreateLinkInput) {
         }
     }
 
+    // Validate and build permissions for room links with folder selection
+    let permissions: { allowed_folders: string[] } | null = null
+    if (linkType === 'room' && allowedFolders && allowedFolders.length > 0) {
+        const { data: validFolders } = await supabase
+            .from('folders')
+            .select('id')
+            .eq('room_id', roomId)
+            .is('deleted_at', null)
+            .in('id', allowedFolders)
+
+        const validIds = new Set((validFolders || []).map((f) => f.id))
+        const verified = allowedFolders.filter((id) => validIds.has(id))
+        if (verified.length > 0) {
+            permissions = { allowed_folders: verified }
+        }
+    }
+
     let slug = ''
     let insertError: Error | null = null
 
@@ -107,6 +126,7 @@ export async function createLink(input: CreateLinkInput) {
             slug,
             link_type: linkType,
             settings: { require_email: requireEmail },
+            permissions,
             created_by: userId,
             allow_download: allowDownload,
             require_nda: requireNda,
@@ -194,6 +214,66 @@ export async function deleteLink(roomId: string, linkId: string) {
         action: 'link.deleted',
         targetType: 'shared_link',
         targetId: linkId,
+    })
+
+    revalidatePath(`/dashboard/rooms/${roomId}`)
+}
+
+export async function updateLinkFolders(roomId: string, linkId: string, allowedFolders: string[]) {
+    const { supabase, userId } = await requireRoomAccess(roomId, ['owner', 'admin'])
+
+    // Verify the link belongs to this room and is a room link
+    const { data: link } = await supabase
+        .from('shared_links')
+        .select('id, link_type')
+        .eq('id', linkId)
+        .eq('room_id', roomId)
+        .maybeSingle()
+
+    if (!link) {
+        throw new Error('Link not found')
+    }
+
+    if (link.link_type !== 'room') {
+        throw new Error('Folder access can only be set on room links')
+    }
+
+    // Validate folder IDs belong to this room
+    let permissions: { allowed_folders: string[] } | null = null
+    if (allowedFolders.length > 0) {
+        const { data: validFolders } = await supabase
+            .from('folders')
+            .select('id')
+            .eq('room_id', roomId)
+            .is('deleted_at', null)
+            .in('id', allowedFolders)
+
+        const validIds = new Set((validFolders || []).map((f) => f.id))
+        const verified = allowedFolders.filter((id) => validIds.has(id))
+        if (verified.length > 0) {
+            permissions = { allowed_folders: verified }
+        }
+    }
+
+    const { error } = await supabase
+        .from('shared_links')
+        .update({ permissions })
+        .eq('id', linkId)
+        .eq('room_id', roomId)
+
+    if (error) {
+        throw new Error('Failed to update folder access')
+    }
+
+    await writeAuditEvent(supabase, {
+        roomId,
+        actorId: userId,
+        action: 'link.permissions_updated',
+        targetType: 'shared_link',
+        targetId: linkId,
+        metadata: {
+            allowed_folders: permissions?.allowed_folders ?? [],
+        },
     })
 
     revalidatePath(`/dashboard/rooms/${roomId}`)
