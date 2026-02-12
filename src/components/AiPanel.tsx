@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Bot, Send, Settings, Trash2, Key, Shield } from 'lucide-react'
+import { Bot, Send, Settings, Trash2, Key, Shield, ExternalLink } from 'lucide-react'
 
 type AiProvider = 'anthropic' | 'openai' | 'google'
 
@@ -25,6 +25,12 @@ const PROVIDER_LABELS: Record<AiProvider, string> = {
     anthropic: 'Anthropic (Claude)',
     openai: 'OpenAI (GPT)',
     google: 'Google (Gemini)',
+}
+
+const PROVIDER_KEY_URLS: Record<AiProvider, string> = {
+    anthropic: 'https://console.anthropic.com/settings/keys',
+    openai: 'https://platform.openai.com/api-keys',
+    google: 'https://aistudio.google.com/apikey',
 }
 
 function getMessageText(message: { parts?: Array<{ type: string; text?: string }>; content?: string }): string {
@@ -46,6 +52,8 @@ export function AiPanel({ roomId }: { roomId: string }) {
     const [newKeyValue, setNewKeyValue] = useState('')
     const [keySaving, setKeySaving] = useState(false)
     const [inputValue, setInputValue] = useState('')
+    const [activeTab, setActiveTab] = useState<string>('chat')
+    const [consentError, setConsentError] = useState<string | null>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const { messages, sendMessage, status, error } = useChat({
@@ -97,13 +105,22 @@ export function AiPanel({ roomId }: { roomId: string }) {
     }
 
     async function handleConsent() {
-        const res = await fetch('/api/ai/consent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomId }),
-        })
-        if (res.ok) {
-            setConsented(true)
+        setConsentError(null)
+        try {
+            const res = await fetch('/api/ai/consent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roomId }),
+            })
+            if (res.ok) {
+                setConsented(true)
+                setActiveTab('settings')
+            } else {
+                const data = await res.json().catch(() => ({}))
+                setConsentError(data.error || 'Failed to record consent. Please try again.')
+            }
+        } catch {
+            setConsentError('Network error. Please check your connection and try again.')
         }
     }
 
@@ -173,6 +190,11 @@ export function AiPanel({ roomId }: { roomId: string }) {
                                 <li>- Your API key is encrypted and stored per-room</li>
                                 <li>- The AI cannot access data outside this room</li>
                             </ul>
+                            {consentError && (
+                                <p className="text-sm text-destructive bg-destructive/10 rounded px-3 py-2">
+                                    {consentError}
+                                </p>
+                            )}
                             <Button onClick={handleConsent} className="w-full">
                                 I Understand, Enable AI
                             </Button>
@@ -181,7 +203,7 @@ export function AiPanel({ roomId }: { roomId: string }) {
                 )}
 
                 {consented === true && (
-                    <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
                         <TabsList className="mx-4 mt-2">
                             <TabsTrigger value="chat" className="flex-1">Chat</TabsTrigger>
                             <TabsTrigger value="settings" className="flex-1">
@@ -351,6 +373,25 @@ export function AiPanel({ roomId }: { roomId: string }) {
                                         ))}
                                     </div>
                                 )}
+
+                                {/* Get your API key links */}
+                                <div className="space-y-2 mb-4">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        Get your API key from a provider:
+                                    </p>
+                                    {(Object.keys(PROVIDER_KEY_URLS) as AiProvider[]).map((p) => (
+                                        <a
+                                            key={p}
+                                            href={PROVIDER_KEY_URLS[p]}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between rounded border p-2 hover:bg-muted/50 transition-colors text-sm"
+                                        >
+                                            <span>{PROVIDER_LABELS[p]}</span>
+                                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                                        </a>
+                                    ))}
+                                </div>
 
                                 {/* Add key form */}
                                 <div className="space-y-2 rounded border p-3">
